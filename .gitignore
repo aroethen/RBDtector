@@ -1,0 +1,8 @@
+Projektplanung/
+Sonstiges/
+Testfiles/
+trials/
+venv/
+.idea/
+*.pyo
+*.pyc
