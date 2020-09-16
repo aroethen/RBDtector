@@ -3,7 +3,9 @@ import glob
 from pyedflib import highlevel, edfreader
 
 
-def readInput(directory_name):
+def read_input(directory_name):
+    # TODO: Read input into [RawPSGData, AnnotationData] and return it
+
     dir = os.path.abspath(directory_name)
     print(dir)
     edfs = glob.glob(dir + '*.edf')
