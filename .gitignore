@@ -6,3 +6,4 @@ venv/
 .idea/
 *.pyo
 *.pyc
+logfile.txt
