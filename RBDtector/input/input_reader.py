@@ -1,6 +1,7 @@
 # python modules
 import os
 import glob
+# TODO: Test glob portability to windows - otherwise consider using os.listdir + fnmatch or pathlib.Path().glob
 from typing import Tuple, Dict, List
 import logging
 
@@ -82,10 +83,16 @@ def _find_files(directory_name: str) -> Dict[str, str]:
 
 def read_edfs(edf: str) -> RawData:
 
+    raw_data = RawData()
+
     signals, signal_headers, header = highlevel.read_edf(edf)
+
+
     print(type(header))
+
     print(type(signal_headers))
     print(type(signals))
+    print(type(signals[0][0]))
     for key, value in header.items():
         print(key + ": ")
         print(value)
