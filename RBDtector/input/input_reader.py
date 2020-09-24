@@ -2,11 +2,11 @@
 import os
 import glob
 # TODO: Test glob portability to windows - otherwise consider using os.listdir + fnmatch or pathlib.Path().glob
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict
 import logging
 
 # third-party modules
-from pyedflib import highlevel, edfreader
+from pyedflib import highlevel
 
 # internal modules
 from app_logic.raw_data import RawData
@@ -36,7 +36,7 @@ def read_input(directory_name: str) -> Tuple[RawData, AnnotationData]:
     """
 
     filenames = _find_files(directory_name)
-    raw_data: RawData = read_edfs(filenames['edf'])
+    raw_data: RawData = read_edf(filenames['edf'])
     annotation_data: AnnotationData = read_txt_files(filenames)
 
     return raw_data, annotation_data
@@ -81,31 +81,26 @@ def _find_files(directory_name: str) -> Dict[str, str]:
     return files
 
 
-def read_edfs(edf: str) -> RawData:
-
-    raw_data = RawData()
+def read_edf(edf: str) -> RawData:
+    """
+    Reads an .edf file using pyEDFlib and stores its data inside a RawData return object
+    :param edf: path to .edf file
+    :returns: RawData object containing all information of .edf file
+    """
 
     signals, signal_headers, header = highlevel.read_edf(edf)
 
+    if len(signals) != len(signal_headers):
+        raise ValueError('Input .edf file has a different amount of signal_headers and signals.')
 
-    print(type(header))
+    data_channels = {}
 
-    print(type(signal_headers))
-    print(type(signals))
-    print(type(signals[0][0]))
-    for key, value in header.items():
-        print(key + ": ")
-        print(value)
-        print()
+    for signal_header, signal in zip(signal_headers, signals):
+        data_channels[signal_header['label']] = RawDataChannel(signal_header, signal)
 
-    for thing in signal_headers:
-        print(thing)
-    #
-    # for thingy in signals:
-    #     print(thingy)
-    #     print(len(thingy))
-    pass
+    return RawData(header, data_channels)
 
 
 def read_txt_files(files: Dict[str, str]) -> AnnotationData:
+    # TODO
     pass

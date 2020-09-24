@@ -7,14 +7,31 @@ from app_logic.raw_data_channel import RawDataChannel
 
 class RawData:
 
-    def __init__(self, header: Dict[str, str] = None):
+    def __init__(self, header: Dict[str, str] = None, data_channels: Dict[str, RawDataChannel] = None):
         """ Constructor of class RawData.
         :param header: header of .edf file as read by pyedflib.highlevel (Dict[str, str or List[List]]).
         Expected keys: 'startdate', 'patientcode', 'birthdate', 'admincode', 'gender', 'epuipment', 'annotations'
         """
         self._header = header
-        self._eeg_data: Dict[str, RawDataChannel] = None
-        self._eog_data: Dict[str, RawDataChannel] = None
-        self._emg_data: Dict[str, RawDataChannel] = None
-        self._ecg_data: Dict[str, RawDataChannel] = None
-        self._O2_data: Dict[str, RawDataChannel] = None
+        self._data_channels: Dict[str, RawDataChannel] = data_channels
+
+    def set_data_channels(self, data_channels: Dict[str, RawDataChannel]):
+        self._data_channels = data_channels
+
+    def get_data_channels(self) -> Dict[str, RawDataChannel]:
+        return self._data_channels
+
+    def set_header(self, header: Dict[str, str]):
+        self._header = header
+
+    def get_header(self) -> Dict[str, str]:
+        return self._header
+
+    def add_channel(self, name: str, channel: RawDataChannel):
+        if name in self._data_channels.keys():
+            raise KeyError('Key "' + name + '" already exists in _data_channels.')
+        else:
+            # TODO: Add RawDataChannel-Validation?
+            self._data_channels[name]: RawDataChannel
+
+    # TODO: Add useful methods to get specific data for calculations
