@@ -7,11 +7,14 @@ import logging
 
 # third-party modules
 from pyedflib import highlevel
+import numpy as np
+import pandas as pd
 
 # internal modules
 from app_logic.raw_data import RawData
 from app_logic.raw_data_channel import RawDataChannel
 from app_logic.annotation_data import AnnotationData
+from util.error_for_display import ErrorForDisplay
 
 
 FILE_FINDER = {
@@ -35,14 +38,15 @@ def read_input(directory_name: str) -> Tuple[RawData, AnnotationData]:
     :raises FileNotFoundError: if no EDF files are found
     """
 
-    filenames = _find_files(directory_name)
-    raw_data: RawData = read_edf(filenames['edf'])
-    annotation_data: AnnotationData = read_txt_files(filenames)
+    filenames = __find_files(directory_name)
+    raw_data: RawData = __read_edf(filenames['edf'])
+    del filenames['edf']
+    annotation_data: AnnotationData = __read_txt_files(filenames)
 
     return raw_data, annotation_data
 
 
-def _find_files(directory_name: str) -> Dict[str, str]:
+def __find_files(directory_name: str) -> Dict[str, str]:
     """
     Finds EDF and text files in given directory by predefined key words
 
@@ -58,9 +62,14 @@ def _find_files(directory_name: str) -> Dict[str, str]:
 
     try:
         abs_dir = os.path.abspath(directory_name)
-    except OSError:
+
+        if not os.path.exists(abs_dir):
+            raise ErrorForDisplay('Input directory "{}" does not exist.'.format(directory_name))
+
+    except OSError as e:
         logging.exception()
-        raise OSError('Directory "{}" does not exist'.format(directory_name))
+        raise
+
     logging.debug('Absolute input directory: ' + abs_dir)
 
     for file_type, file_identifier in FILE_FINDER.items():
@@ -81,12 +90,13 @@ def _find_files(directory_name: str) -> Dict[str, str]:
     return files
 
 
-def read_edf(edf: str) -> RawData:
+def __read_edf(edf: str) -> RawData:
     """
     Reads an .edf file using pyEDFlib and stores its data inside a RawData return object
     :param edf: path to .edf file
     :returns: RawData object containing all information of .edf file
     """
+    logging.debug('Start reading .edf files')
 
     signals, signal_headers, header = highlevel.read_edf(edf)
 
@@ -98,9 +108,75 @@ def read_edf(edf: str) -> RawData:
     for signal_header, signal in zip(signal_headers, signals):
         data_channels[signal_header['label']] = RawDataChannel(signal_header, signal)
 
+    logging.debug('.edf files read')
+
     return RawData(header, data_channels)
 
 
-def read_txt_files(files: Dict[str, str]) -> AnnotationData:
-    # TODO
+def __read_txt_files(filenames: Dict[str, str]) -> AnnotationData:
+    logging.debug('Start reading .txt files')
+
+    sleep_profile = __read_sleep_profile(filenames['sleep_profile'])
+    # flow_events = __read_flow_events(filenames['flow_events'])
+    # arousals = __read_arousals(filenames['arousals'])
+    # baseline = __read_baseline(filenames['baseline'])
+    # human_rating = __read_human_rating(filenames['human_rating'])
+    #
+    #
+    # logging.debug('.txt files read')
+    #
+    # return AnnotationData(sleep_profile, flow_events, arousals, baseline, human_rating)
+    return None
+
+
+def __read_sleep_profile(filename: str):
+    with open(filename, 'r', encoding='utf-8') as f:
+
+        text_in_lines = f.readlines()
+        header = {}
+        df = pd.DataFrame()
+        first_line_of_data = 0
+
+        # Read header data and find first line of data
+        for index, line in enumerate(text_in_lines):
+
+            key, separator, value = line.partition(':')
+
+            if separator == '':
+                continue
+
+            if not key.isdecimal():
+                header[key.strip()] = value.strip()
+            else:
+                first_line_of_data = index
+                break
+
+        start_time = pd.Timestamp(header['Start Time'])
+        rate = header['Rate']
+        first_period = pd.Period(start_time, freq=rate)
+        print(first_period + 1)
+    f.close()
+    return header, df
+
+
+
+
+
+def __read_flow_events(filename: str):
+    pass
+
+
+def __read_arousals(filename: str):
+    pass
+
+
+def __read_baseline(filename: str):
+    pass
+
+
+def __read_human_rating(filename: str):
+    pass
+
+
+if __name__ == '__main__':
     pass

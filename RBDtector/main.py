@@ -23,3 +23,4 @@ if __name__ == "__main__":
     logging.info('\n----------- START -----------')
     logging.info('Starting GUI')
     gui.start_gui()
+    # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code

@@ -1,13 +1,16 @@
 # tkinter
 import tkinter.messagebox
 import tkinter.filedialog
+from tkinter import ttk
 import tkinter as tk
+from ttkthemes import ThemedTk
 
 # external
 import logging
 
 # internal
 import main
+from util.error_for_display import ErrorForDisplay
 
 # global variables
 _input_placeholder = 'Select input folder'
@@ -15,23 +18,22 @@ _output_placeholder = 'Select output folder'
 
 
 def start_gui():
-    try:
         # main app layout
-        root = tk.Tk()
+        root = ThemedTk(theme='scidblue')       # okay looking ones: breeze, scidblue, scidsand, yaru
         root.title('RBDtector')
-        mainframe = tk.Frame(root)
+        mainframe = ttk.Frame(root)
         mainframe.grid(column=0, row=0, padx=10, pady=15, sticky=(tk.N, tk.W, tk.S, tk.E))
 
         # input directory section
         input_dir = tk.StringVar()
         input_dir.set(_input_placeholder)
 
-        tk.Label(
+        ttk.Label(
             mainframe,
             text='Input folder:'
         ).grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
 
-        input_button = tk.Button(
+        input_button = ttk.Button(
             mainframe,
             textvariable=input_dir,
             command=lambda: _select_folder_handler(input_dir),
@@ -42,12 +44,12 @@ def start_gui():
         output_dir = tk.StringVar()
         output_dir.set(_output_placeholder)
 
-        tk.Label(
+        ttk.Label(
             mainframe,
             text='Output folder:'
         ).grid(row=1, column=0, padx=10, pady=5)
 
-        output_button = tk.Button(
+        output_button = ttk.Button(
             mainframe,
             textvariable=output_dir,
             command=lambda: _select_folder_handler(output_dir),
@@ -55,22 +57,16 @@ def start_gui():
         output_button.grid(row=1, column=1, padx=10, pady=5, sticky=(tk.W, tk.E))
 
         # start button
-        tk.Button(
+        ttk.Button(
             mainframe,
             text='Start calculation',
             command=lambda: _trigger_calculation(input_dir.get(), output_dir.get()),
-            height=1,
-            width=35
         ).grid(row=2, column=0, columnspan=2, padx=10, pady=10)
 
         # main loop
         root.columnconfigure(0, weight=1)
         mainframe.columnconfigure(1, weight=1)
         root.mainloop()
-
-    except Exception:
-        # TODO: Die ganze Exception hier entfernen - nur zum Debugging waehrend dem Schreiben gedacht!!!
-        logging.exception('Exception in GUI mainloop. Stack trace:')
 
 
 def _select_folder_handler(dir_string):
@@ -88,7 +84,15 @@ def _trigger_calculation(input_dir, output_dir):
                      'Selected input dir: {}\n\t\t'
                      'Selected output dir: {}'.format(input_dir, output_dir))
 
-        main.calculate_results(input_dir, output_dir)
+        try:
+            main.calculate_results(input_dir, output_dir)
+
+        except ErrorForDisplay as e:
+
+            tkinter.messagebox.showerror(
+                title='Error',
+                message=str(e)
+            )
 
     else:
         tkinter.messagebox.showinfo(

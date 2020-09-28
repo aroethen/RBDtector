@@ -12,7 +12,7 @@ class RawData:
         :param header: header of .edf file as read by pyedflib.highlevel (Dict[str, str or List[List]]).
         Expected keys: 'startdate', 'patientcode', 'birthdate', 'admincode', 'gender', 'epuipment', 'annotations'
         """
-        self._header = header
+        self._header: Dict[str, str] = header
         self._data_channels: Dict[str, RawDataChannel] = data_channels
 
     def set_data_channels(self, data_channels: Dict[str, RawDataChannel]):
