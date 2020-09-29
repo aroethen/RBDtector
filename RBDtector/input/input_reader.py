@@ -1,8 +1,10 @@
 # python modules
 import os
 import glob
+import datetime as dt
+
 # TODO: Test glob portability to windows - otherwise consider using os.listdir + fnmatch or pathlib.Path().glob
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 import logging
 
 # third-party modules
@@ -130,12 +132,15 @@ def __read_txt_files(filenames: Dict[str, str]) -> AnnotationData:
 
 
 def __read_sleep_profile(filename: str):
+    header = {}
+    df = pd.DataFrame()
+    first_line_of_data = 0
+    timestamps: List[pd.Timestamp] = []
+    sleep_events: List[str] = []
+
     with open(filename, 'r', encoding='utf-8') as f:
 
         text_in_lines = f.readlines()
-        header = {}
-        df = pd.DataFrame()
-        first_line_of_data = 0
 
         # Read header data and find first line of data
         for index, line in enumerate(text_in_lines):
@@ -151,15 +156,40 @@ def __read_sleep_profile(filename: str):
                 first_line_of_data = index
                 break
 
-        start_time = pd.Timestamp(header['Start Time'])
-        rate = header['Rate']
-        first_period = pd.Period(start_time, freq=rate)
-        print(first_period + 1)
+        # Find start date for timestamps
+        try:
+            start_time = pd.Timestamp(header['Start Time'])
+            start_date = start_time.date()
+        except KeyError as e:
+            logging.exception()
+            raise ErrorForDisplay('"Start Time" field missing in header of sleep profile input file.') from e
+
+        # Loop over timestamps and events and read them into timestamps and sleep_events
+        current_date = start_date
+        date_change_occurred = False
+
+        for line in text_in_lines[first_line_of_data:]:
+            time, _, sleep_event = line.partition(';')
+
+            if not date_change_occurred \
+                    and dt.time(0, 0, 0) <= dt.datetime.strptime(time, '%H:%M:%S,%f').time() < dt.time(3, 0, 0):
+                current_date = start_date + dt.timedelta(days=1)
+                date_change_occurred = True
+
+            current_date_time = pd.to_datetime(str(current_date) + ' ' + time, infer_datetime_format=True)
+
+            timestamps.append(current_date_time)
+            sleep_events.append(sleep_event.strip())
+
+        # create DataFrame with columns timestamps and sleep_events
+        df = pd.DataFrame(
+            {
+                'start_time': timestamps,
+                'sleep_phase': sleep_events
+            })
+        df['sleep_phase'].astype('category')
     f.close()
     return header, df
-
-
-
 
 
 def __read_flow_events(filename: str):
