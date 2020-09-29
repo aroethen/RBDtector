@@ -1,9 +1,11 @@
 Projektplanung/
 Sonstiges/
 Testfiles/
+TESTS_FILES/
 trials/
 venv/
 .idea/
 *.pyo
 *.pyc
 logfile.txt
+
