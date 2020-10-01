@@ -39,15 +39,15 @@ class PSGData:
         logging.debug('PSGData starting to generate output')
         self._read_data()
         # self._calculated_data = self._process_data()
-        # human_rater_data = self._annotation_data.get_human_rater_data()
-        # csv_writer.write_output(self._calculated_data, human_rater_data)
+        human_rater_data = self._annotation_data.get_human_rating()
+        csv_writer.write_output(self._output_path, human_rating=human_rater_data)
 
 # PRIVATE FUNCTIONS
     def _read_data(self):
         logging.debug('PSGData starting to read input')
         data = ir.read_input(self._input_path)
-        # self._raw_data = data[0]
-        # self._annotation_data = data[1]
+        self._raw_data = data[0]
+        self._annotation_data = data[1]
 
     def _process_data(self) -> List[List]:
         # TODO: returns calculated data in form that can be used by output writer

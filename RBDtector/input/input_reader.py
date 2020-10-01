@@ -1,7 +1,7 @@
 # python modules
 import os
 import glob
-import datetime as dt
+import datetime
 
 # TODO: Test glob portability to windows - otherwise consider using os.listdir + fnmatch or pathlib.Path().glob
 from typing import Tuple, Dict, List
@@ -80,14 +80,13 @@ def __find_files(directory_name: str) -> Dict[str, str]:
             files[file_type] = tmp_files[0]
             logging.debug('{}: {}'.format(file_type, files[file_type]))
         elif len(tmp_files) > 1:
-            raise FileExistsError(
+            raise ErrorForDisplay(
                 'Too many files of type {} in input directory ({})'.format(file_identifier, abs_dir)
             )
 
     if 'edf' not in files:
-        raise FileNotFoundError('No EDF files were found in input directory ({}). '
-                                'Calculation stopped.'
-                                .format(abs_dir))
+        raise ErrorForDisplay('No EDF files were found in input directory ({}). '
+                              'Calculation stopped.'.format(abs_dir))
 
     return files
 
@@ -116,53 +115,46 @@ def __read_edf(edf: str) -> RawData:
 
 
 def __read_txt_files(filenames: Dict[str, str]) -> AnnotationData:
+    """
+    Reads data of all sleep
+    :param filenames:
+    :return:
+    """
     logging.debug('Start reading .txt files')
 
     sleep_profile = __read_sleep_profile(filenames['sleep_profile'])
-    # flow_events = __read_flow_events(filenames['flow_events'])
-    # arousals = __read_arousals(filenames['arousals'])
-    # baseline = __read_baseline(filenames['baseline'])
-    # human_rating = __read_human_rating(filenames['human_rating'])
-    #
-    #
-    # logging.debug('.txt files read')
-    #
-    # return AnnotationData(sleep_profile, flow_events, arousals, baseline, human_rating)
-    return None
+    flow_events = __read_flow_events(filenames['flow_events'])
+    arousals = __read_arousals(filenames['arousals'])
+    baseline = __read_baseline(filenames['baseline'],
+                               start_date=__find_start_date(sleep_profile[0], filenames['sleep_profile']))
+    human_rating = __read_human_rating(filenames['human_rating'])
+
+    logging.debug('.txt files read')
+    return AnnotationData(sleep_profile, flow_events, arousals, baseline, human_rating)
 
 
-def __read_sleep_profile(filename: str):
-    header = {}
-    df = pd.DataFrame()
-    first_line_of_data = 0
-    timestamps: List[pd.Timestamp] = []
-    sleep_events: List[str] = []
+def __read_sleep_profile(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
+    """
+    Reads text file of sleep profile at file path 'filename'
+    Text file format:
+        - header:
+            - keys that are not numbers
+            - keys and values separated by first ':' in line
+        - data:
+            - all lines in format: %H:%M:%S,%f; <sleeping phase as string>
+    :param filename: path of sleep profile text file
+    :return: Tuple containing the header as dictionary and a pandas DataFrame containing time stamps and classification
+    """
+    header: [Dict[str, str]] = {}
+    df: pd.DataFrame = None
 
     with open(filename, 'r', encoding='utf-8') as f:
 
         text_in_lines = f.readlines()
-
-        # Read header data and find first line of data
-        for index, line in enumerate(text_in_lines):
-
-            key, separator, value = line.partition(':')
-
-            if separator == '':
-                continue
-
-            if not key.isdecimal():
-                header[key.strip()] = value.strip()
-            else:
-                first_line_of_data = index
-                break
-
-        # Find start date for timestamps
-        try:
-            start_time = pd.Timestamp(header['Start Time'])
-            start_date = start_time.date()
-        except KeyError as e:
-            logging.exception()
-            raise ErrorForDisplay('"Start Time" field missing in header of sleep profile input file.') from e
+        timestamps: List[pd.Timestamp] = []
+        sleep_events: List[str] = []
+        header, first_line_of_data = __read_annotation_header(text_in_lines)
+        start_date = __find_start_date(header, filename)
 
         # Loop over timestamps and events and read them into timestamps and sleep_events
         current_date = start_date
@@ -172,8 +164,8 @@ def __read_sleep_profile(filename: str):
             time, _, sleep_event = line.partition(';')
 
             if not date_change_occurred \
-                    and dt.time(0, 0, 0) <= dt.datetime.strptime(time, '%H:%M:%S,%f').time() < dt.time(3, 0, 0):
-                current_date = start_date + dt.timedelta(days=1)
+                    and datetime.time(0, 0, 0) <= datetime.datetime.strptime(time, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                current_date = start_date + datetime.timedelta(days=1)
                 date_change_occurred = True
 
             current_date_time = pd.to_datetime(str(current_date) + ' ' + time, infer_datetime_format=True)
@@ -188,24 +180,238 @@ def __read_sleep_profile(filename: str):
                 'sleep_phase': sleep_events
             })
         df['sleep_phase'].astype('category')
-    f.close()
+
+        f.close()
     return header, df
 
 
 def __read_flow_events(filename: str):
-    pass
+
+    with open(filename, 'r', encoding='utf-8') as f:
+        text_in_lines = f.readlines()
+        header, first_line_of_data = __read_annotation_header(text_in_lines)
+        start_date = __find_start_date(header, filename)
+
+        event_onsets = []
+        event_end_times = []
+        durations_in_seconds = []
+        flow_events = []
+
+        # Loop over times, durations and events and read them into respective lists
+        for line in text_in_lines[first_line_of_data:]:
+            split_list = line.split('-', 1)
+            event_onset = split_list[0].strip()
+            split_list2 = str(split_list[1]).split(';')
+            event_end_time = split_list2[0].strip()
+            duration = split_list2[1].strip()
+            flow_event = split_list2[2].strip()
+
+            onset_after_midnight = 0
+            end_after_midnight = 0
+
+            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_onset, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                onset_after_midnight = 1
+            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_end_time, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                end_after_midnight = 1
+
+            onset_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=onset_after_midnight))
+                                             + ' ' + event_onset, infer_datetime_format=True)
+            end_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=end_after_midnight))
+                                           + ' ' + event_end_time, infer_datetime_format=True)
+
+            event_onsets.append(onset_timestamp)
+            event_end_times.append(end_timestamp)
+            durations_in_seconds.append(duration)
+            flow_events.append(flow_event)
+
+        # create DataFrame with filled lists as columns
+        df = pd.DataFrame(
+            {
+                'event_onset': event_onsets,
+                'event_end_time': event_end_times,
+                'duration_in_seconds': durations_in_seconds,
+                'flow_event': flow_events
+            })
+        df['flow_event'].astype('category')
+
+        f.close()
+
+        return header, df
 
 
 def __read_arousals(filename: str):
-    pass
+
+    with open(filename, 'r', encoding='utf-8') as f:
+        text_in_lines = f.readlines()
+        header, first_line_of_data = __read_annotation_header(text_in_lines)
+        start_date = __find_start_date(header, filename)
+
+        event_onsets = []
+        event_end_times = []
+        durations_in_seconds = []
+        arousals = []
+
+        # Loop over times, durations and events and read them into respective lists
+        for line in text_in_lines[first_line_of_data:]:
+            split_list = line.split('-', 1)
+            event_onset = split_list[0].strip()
+            split_list2 = str(split_list[1]).split(';')
+            event_end_time = split_list2[0].strip()
+            duration = split_list2[1].strip()
+            arousal = split_list2[2].strip()
+
+            onset_after_midnight = 0
+            end_after_midnight = 0
+
+            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_onset, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                onset_after_midnight = 1
+            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_end_time, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                end_after_midnight = 1
+
+            onset_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=onset_after_midnight))
+                                             + ' ' + event_onset, infer_datetime_format=True)
+            end_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=end_after_midnight))
+                                           + ' ' + event_end_time, infer_datetime_format=True)
+
+            event_onsets.append(onset_timestamp)
+            event_end_times.append(end_timestamp)
+            durations_in_seconds.append(duration)
+            arousals.append(arousal)
+
+        # create DataFrame with filled lists as columns
+        df = pd.DataFrame(
+            {
+                'event_onset': event_onsets,
+                'event_end_time': event_end_times,
+                'duration_in_seconds': durations_in_seconds,
+                'arousal': arousals
+            })
+        df['arousal'].astype('category')
+
+        f.close()
+
+    return header, df
 
 
-def __read_baseline(filename: str):
-    pass
+def __read_baseline(filename: str, start_date: datetime.date):
+    with open(filename, 'r', encoding='utf-8') as f:
+        text_in_lines = f.readlines()
+
+        baseline_dict, _ = __read_annotation_header(text_in_lines)
+        for key, value in baseline_dict.items():
+
+            value = value.split('-')
+
+            if isinstance(value, list):
+                for i, time_string in enumerate(value):
+
+                    time_string = time_string.replace('.', ':')
+
+                    after_midnight = 0
+                    if datetime.time(0, 0, 0) <= datetime.datetime.strptime(time_string, '%H:%M:%S').time() < datetime.time(12, 0, 0):
+                        after_midnight = 1
+
+                    value[i] = pd.to_datetime(str(start_date + datetime.timedelta(days=after_midnight))
+                                              + ' ' + time_string, infer_datetime_format=True)
+                baseline_dict[key] = value
+
+        return baseline_dict
 
 
 def __read_human_rating(filename: str):
-    pass
+
+    with open(filename, 'r', encoding='utf-8') as f:
+        text_in_lines = f.readlines()
+        header, first_line_of_data = __read_annotation_header(text_in_lines)
+        start_date = __find_start_date(header, filename)
+
+        event_onsets = []
+        event_end_times = []
+        events = []
+
+        # Loop over times, durations and events and read them into respective lists
+        for line in text_in_lines[first_line_of_data:]:
+            split_list = line.split('-', 1)
+            event_onset = split_list[0].strip()
+            split_list2 = str(split_list[1]).split(';')
+            event_end_time = split_list2[0].strip()
+            event = split_list2[1].strip()
+
+            onset_after_midnight = 0
+            end_after_midnight = 0
+
+            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_onset, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                onset_after_midnight = 1
+            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_end_time, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                end_after_midnight = 1
+
+            onset_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=onset_after_midnight))
+                                             + ' ' + event_onset, infer_datetime_format=True)
+            end_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=end_after_midnight))
+                                           + ' ' + event_end_time, infer_datetime_format=True)
+
+            event_onsets.append(onset_timestamp)
+            event_end_times.append(end_timestamp)
+            events.append(event)
+
+        # create DataFrame with filled lists as columns
+        df = pd.DataFrame(
+            {
+                'event_onset': event_onsets,
+                'event_end_time': event_end_times,
+                'event': events
+            })
+        df['event'].astype('category')
+
+        f.close()
+
+        return header, df
+
+
+def __read_annotation_header(text_in_lines: List[str]) -> Tuple[Dict[str, str], int]:
+    """
+    Read header data of annotation data from input text file into a dictionary
+    :param text_in_lines: Output from file.readlines() of annotation text file
+    :return: Dictionary containing header data and number of first line of data
+    """
+
+    header: [Dict[str, str]] = {}
+    first_line_of_data: int = 0
+
+    # Read header data and find first line of data
+    for index, line in enumerate(text_in_lines):
+
+        key, separator, value = line.partition(':')
+
+        if separator == '':
+            continue
+
+        if not key.isdecimal():
+            header[key.strip()] = value.strip()
+        else:
+            first_line_of_data = index
+            break
+
+    return header, first_line_of_data
+
+
+def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
+    """
+    Takes start time string out of dictionary['Start Time'], extracts the date part and returns it as datetime.date
+    :param header: Dictionary containing a key 'Start Time' with date and time in a string as value
+    :param filename: filename of input file. Used for exception handling only.
+    :return: Start date as date object
+    """
+    try:
+        start_time = pd.Timestamp(header['Start Time'])
+        start_date = start_time.date()
+
+    except KeyError as e:
+        logging.exception()
+
+        raise ErrorForDisplay('"Start Time" field missing in header of the following file:' + filename) from e
+
+    return start_date
 
 
 if __name__ == '__main__':

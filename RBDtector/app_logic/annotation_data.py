@@ -7,3 +7,6 @@ class AnnotationData:
         self.arousals = arousals
         self.baseline = baseline
         self.human_rating = human_rating
+
+    def get_human_rating(self):
+        return self.human_rating
