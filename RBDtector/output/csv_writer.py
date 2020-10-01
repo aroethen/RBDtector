@@ -20,6 +20,3 @@ def write_output(output_path, calculated_data=None, human_rating=None):
 
     df.to_csv(os.path.join(output_path, 'csv_output.txt'), index=False)
 
-
-def __cut_off_nanoseconds(x):
-    return x[:-3]
