@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+
 from typing import Dict, Any
 
 
@@ -8,4 +10,11 @@ class RawDataChannel:
         self._signal_header: Dict[str, Any] = signal_header
         self._signal: np.ndarray = signal
 
-        # TODO: Add attributes and useful methods for getting calculation data
+    def get_signal(self):
+        return self._signal
+
+    def get_signal_as_pd_series(self):
+        return pd.Series(self._signal)
+
+    def get_sample_rate(self):
+        return self._signal_header['sample_rate']

@@ -44,7 +44,6 @@ def read_input(directory_name: str) -> Tuple[RawData, AnnotationData]:
     raw_data: RawData = __read_edf(filenames['edf'])
     del filenames['edf']
     annotation_data: AnnotationData = __read_txt_files(filenames)
-
     return raw_data, annotation_data
 
 
@@ -185,7 +184,7 @@ def __read_sleep_profile(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
     return header, df
 
 
-def __read_flow_events(filename: str):
+def __read_flow_events(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
 
     with open(filename, 'r', encoding='utf-8') as f:
         text_in_lines = f.readlines()
@@ -239,7 +238,7 @@ def __read_flow_events(filename: str):
         return header, df
 
 
-def __read_arousals(filename: str):
+def __read_arousals(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
 
     with open(filename, 'r', encoding='utf-8') as f:
         text_in_lines = f.readlines()
@@ -293,32 +292,37 @@ def __read_arousals(filename: str):
     return header, df
 
 
-def __read_baseline(filename: str, start_date: datetime.date):
+def __read_baseline(filename: str, start_date: datetime.date) -> Dict[str, datetime.datetime]:
     with open(filename, 'r', encoding='utf-8') as f:
         text_in_lines = f.readlines()
-
         baseline_dict, _ = __read_annotation_header(text_in_lines)
+
         for key, value in baseline_dict.items():
 
-            value = value.split('-')
+            if value.lower() == 'none':
+                baseline_dict[key] = ''
+                continue
+            else:
 
-            if isinstance(value, list):
-                for i, time_string in enumerate(value):
+                value = value.split('-')
 
-                    time_string = time_string.replace('.', ':')
+                if isinstance(value, list):
+                    for i, time_string in enumerate(value):
 
-                    after_midnight = 0
-                    if datetime.time(0, 0, 0) <= datetime.datetime.strptime(time_string, '%H:%M:%S').time() < datetime.time(12, 0, 0):
-                        after_midnight = 1
+                        time_string = time_string.replace('.', ':')
 
-                    value[i] = pd.to_datetime(str(start_date + datetime.timedelta(days=after_midnight))
-                                              + ' ' + time_string, infer_datetime_format=True)
-                baseline_dict[key] = value
+                        after_midnight = 0
+                        if datetime.time(0, 0, 0) <= datetime.datetime.strptime(time_string, '%H:%M:%S').time() < datetime.time(12, 0, 0):
+                            after_midnight = 1
+
+                        value[i] = pd.to_datetime(str(start_date + datetime.timedelta(days=after_midnight))
+                                                  + ' ' + time_string, infer_datetime_format=True)
+                    baseline_dict[key] = value
 
         return baseline_dict
 
 
-def __read_human_rating(filename: str):
+def __read_human_rating(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
 
     with open(filename, 'r', encoding='utf-8') as f:
         text_in_lines = f.readlines()
