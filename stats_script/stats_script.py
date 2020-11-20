@@ -6,8 +6,8 @@ import os
 import re
 import logging
 import datetime
+from itertools import chain
 
-IN_PERCENT_OF_REM_DURATION = False
 
 FILE_FINDER = {
     'edf': '.edf',
@@ -172,11 +172,16 @@ def collect_data_for_table_row_from_directory(dirtuple):
             event_duration = end_datetime - onset_datetime
             quality_timedeltas[QUALITIES.index(event)] += event_duration
 
-        # transform timedeltas in quality_timedeltas to percent of total REM duration
-        if IN_PERCENT_OF_REM_DURATION:
-            quality_timedeltas = [(tdelta.total_seconds() / rem_duration) * 100 for tdelta in quality_timedeltas]
-        else:
-            quality_timedeltas = [tdelta.total_seconds() for tdelta in quality_timedeltas]
+        # # transform timedeltas in quality_timedeltas to percent of total REM duration
+        # if IN_PERCENT_OF_REM_DURATION:
+        #     quality_timedeltas = [(tdelta.total_seconds() / rem_duration) * 100 for tdelta in quality_timedeltas]
+        # else:
+
+        quality_timedeltas = list(chain.from_iterable(
+            (tdelta.total_seconds(), (tdelta.total_seconds() / rem_duration) * 100)
+            for tdelta in quality_timedeltas))
+        print(quality_timedeltas)
+
 
         # print([str(pretty) for pretty in quality_timedeltas])
         logging.info('Times of qualities in subject {}:\n'
@@ -186,27 +191,24 @@ def collect_data_for_table_row_from_directory(dirtuple):
     return row
 
 
-def generate_descripive_statistics():
-    human_rated_dirs = find_all_human_rated_directories('../Testfiles/Output')
+def generate_descripive_statistics(dirname='../Testfiles/Output'):
+    human_rated_dirs = find_all_human_rated_directories(dirname)
     table = []
 
     for dirtuple in human_rated_dirs:
         row = collect_data_for_table_row_from_directory(dirtuple)
         table.append(row)
 
-    columns = ['Subject', 'Total REM duration']
-    columns.extend(QUALITIES)
+    columns = ['Subject', 'Total REM duration [s]']
+    quality_columns = list(chain.from_iterable((col + ' [s]', col + ' [% REM]') for col in QUALITIES))
+    columns.extend(quality_columns)
 
     df = pd.DataFrame(table, columns=columns)
     print(df)
-    output_filename = 'human_scoring_table'
+    output_filename = '{}_human_scoring_table'.format(os.path.basename(dirname))
 
-    if IN_PERCENT_OF_REM_DURATION:
-        output_filename += '_in_pct_of_REM.csv'
-    else:
-        output_filename += '_in_total_seconds.csv'
-
-    df.to_csv(output_filename)
+    df.to_csv(output_filename + '.csv')
+    df.to_excel(output_filename + '.xlsx')
 
 
 if __name__ == "__main__":
