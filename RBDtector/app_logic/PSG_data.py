@@ -1,18 +1,16 @@
 # internal modules
-from app_logic.annotation_data import AnnotationData
-from app_logic.raw_data import RawData
-from input import input_reader as ir
+from data_structures.annotation_data import AnnotationData
+from data_structures.raw_data import RawData
+from input_handling import input_reader as ir
 from output import csv_writer
 
 # python modules
 import logging
-from typing import List
 
 # dependencies
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from scipy import interpolate, signal
+from scipy import interpolate
 
 # DEFINITIONS
 SPLINES = True
@@ -24,9 +22,9 @@ class PSGData:
         self._input_path = input_path
         self._output_path = output_path
 
-        self._raw_data : RawData = None          # content of edf file
-        self._annotation_data : AnnotationData = None   # content of txt files
-        self._calculated_data : pd.DataFrame = None
+        self._raw_data: RawData = None          # content of edf file
+        self._annotation_data: AnnotationData = None   # content of txt files
+        self._calculated_data: pd.DataFrame = None
         logging.debug('New PSGData Object created')
 
 # PUBLIC FUNCTIONS
@@ -70,9 +68,14 @@ class PSGData:
         signals_to_evaluate = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
         start_datetime = self._raw_data.get_header()['startdate']
 
-        for signal_type in signals_to_evaluate:
+        for signal_type in signals_to_evaluate.copy():
             print(signal_type + ' start')
-            signal_array = self._raw_data.get_data_channels()[signal_type].get_signal()
+            try:
+                signal_array = self._raw_data.get_data_channels()[signal_type].get_signal()
+            except KeyError as e:
+                signals_to_evaluate.remove(signal_type)
+                continue
+
 
             sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
             duration_in_seconds = len(signal_array) / float(sample_rate)
@@ -91,9 +94,9 @@ class PSGData:
             idx = pd.date_range(start_datetime, freq='5ms', periods=len(new_sample_points))
             resampled_signal_dtseries = pd.Series(resampled_signal_array, index=idx, name=signal_type)
 
-            plt.plot(tidx, signal_array)
-            plt.plot(idx, resampled_signal_array, c='gold')
-            plt.show()
+            # plt.plot(tidx, signal_array)
+            # plt.plot(idx, resampled_signal_array, c='gold')
+            # plt.show()
 
             if df.empty:
                 df = resampled_signal_dtseries.to_frame()

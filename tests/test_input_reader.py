@@ -1,14 +1,17 @@
 import unittest
-from RBDtector.input import input_reader
+
+import RBDtector.input_handling.input_reader
+import RBDtector.data_structures
 
 import os
 
 
+
 class TestInputReader(unittest.TestCase):
 
-    def test_find_EDFs_in_directory(self):
+    def test_read_input(self):
         filepath1 = os.path.abspath("../Testfiles/Output/iRBD0095/iRBD0095_Unbekannt_(1).edf")
-        edfs = input_reader.find_EDFs_in_directory("../Testfiles/Output/iRBD0095")
+        edfs = RBDtector.input_handling.input_reader.__find_files("../Testfiles/Output/iRBD0095")
         edf1 = os.path.abspath(edfs[0])
         self.assertEqual(filepath1, edf1)
 

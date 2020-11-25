@@ -2,7 +2,7 @@
 from typing import Dict
 
 # internal modules
-from app_logic.raw_data_channel import RawDataChannel
+from data_structures.raw_data_channel import RawDataChannel
 
 
 class RawData:

@@ -9,14 +9,14 @@ import logging
 
 # third-party modules
 from pyedflib import highlevel
-import numpy as np
 import pandas as pd
 
 # internal modules
-from app_logic.raw_data import RawData
-from app_logic.raw_data_channel import RawDataChannel
-from app_logic.annotation_data import AnnotationData
+from data_structures.raw_data import RawData
+from data_structures.raw_data_channel import RawDataChannel
+from data_structures.annotation_data import AnnotationData
 from util.error_for_display import ErrorForDisplay
+
 
 
 FILE_FINDER = {

@@ -182,8 +182,6 @@ def collect_data_for_table_row_from_directory(dirtuple):
             for tdelta in quality_timedeltas))
         print(quality_timedeltas)
 
-
-        # print([str(pretty) for pretty in quality_timedeltas])
         logging.info('Times of qualities in subject {}:\n'
                      '{}'.format(dirtuple[0], dict(zip(QUALITIES, quality_timedeltas))))
         row.extend(quality_timedeltas)
@@ -205,7 +203,7 @@ def generate_descripive_statistics(dirname='../Testfiles/Output'):
 
     df = pd.DataFrame(table, columns=columns)
     print(df)
-    output_filename = '{}_human_scoring_table'.format(os.path.basename(dirname))
+    output_filename = os.path.join('output_tables', '{}_human_scoring_table'.format(os.path.basename(dirname)))
 
     df.to_csv(output_filename + '.csv')
     df.to_excel(output_filename + '.xlsx')
