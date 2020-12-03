@@ -1,7 +1,7 @@
 import unittest
 
-import RBDtector.input_handling.input_reader
-import RBDtector.data_structures
+from input_handling import input_reader
+
 
 import os
 

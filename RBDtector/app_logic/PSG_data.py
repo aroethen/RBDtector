@@ -10,7 +10,7 @@ import logging
 # dependencies
 import numpy as np
 import pandas as pd
-from scipy import interpolate
+from scipy import interpolate, signal
 
 # DEFINITIONS
 SPLINES = True
@@ -46,19 +46,19 @@ class PSGData:
 
     def generate_output(self):
         logging.debug('PSGData starting to generate output')
-        self.__read_data()
-        self._calculated_data = self.__process_data()
+        self._read_data()
+        self._calculated_data = self._process_data()
         human_rater_data = self._annotation_data.get_human_rating()
         csv_writer.write_output(self._output_path, human_rating=human_rater_data)
 
 # PRIVATE FUNCTIONS
-    def __read_data(self):
+    def _read_data(self):
         logging.debug('PSGData starting to read input')
         data = ir.read_input(self._input_path)
         self._raw_data = data[0]
         self._annotation_data = data[1]
 
-    def __process_data(self) -> pd.DataFrame:
+    def _process_data(self) -> pd.DataFrame:
         # TODO: returns calculated data in form that can be used by output writer
         # for key in self._raw_data.get_data_channels():
         #     print(key)
@@ -76,32 +76,17 @@ class PSGData:
                 signals_to_evaluate.remove(signal_type)
                 continue
 
-
-            sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
-            duration_in_seconds = len(signal_array) / float(sample_rate)
-            print(str(start_datetime) + ' ' + str(sample_rate) + ' ' + str(duration_in_seconds))
-
-            old_sample_points = np.arange(len(signal_array))
-            new_sample_points = np.arange(len(signal_array), step=(sample_rate/200.), dtype=np.double)
-
-            if SPLINES:
-                tck = interpolate.splrep(old_sample_points, signal_array)
-                resampled_signal_array = interpolate.splev(new_sample_points, tck)
-            else:
-                resampled_signal_array = signal_array.resample_poly(signal_array, 200, sample_rate, padtype='maximum')
-
-            tidx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(old_sample_points))
-            idx = pd.date_range(start_datetime, freq='5ms', periods=len(new_sample_points))
-            resampled_signal_dtseries = pd.Series(resampled_signal_array, index=idx, name=signal_type)
-
-            # plt.plot(tidx, signal_array)
-            # plt.plot(idx, resampled_signal_array, c='gold')
-            # plt.show()
-
+            resampled_signal_dtseries = self._signal_to_256hz_datetimeindexed_series(signal_array, signal_type,
+                                                                                     start_datetime)
             if df.empty:
                 df = resampled_signal_dtseries.to_frame()
             else:
                 df[signal_type] = resampled_signal_dtseries
+
+
+
+
+
 
             print(signal_type + ' end')
 
@@ -109,5 +94,32 @@ class PSGData:
         # plt.plot(resampled_signal_dtseries.index.values, resampled_signal_dtseries.values)
         # plt.show()
 
-
         return None
+
+    def _signal_to_256hz_datetimeindexed_series(self, signal_array, signal_type, start_datetime):
+        sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
+        duration_in_seconds = len(signal_array) / float(sample_rate)
+        print(str(start_datetime) + ' ' + str(sample_rate) + ' ' + str(duration_in_seconds))
+        old_sample_points = np.arange(len(signal_array))
+        new_sample_points = np.arange(len(signal_array), step=(sample_rate / 256.), dtype=np.double)
+
+        if SPLINES:
+            tck = interpolate.splrep(old_sample_points, signal_array)
+            resampled_signal_array = interpolate.splev(new_sample_points, tck)
+        else:
+            raise NotImplementedError('TODO - Non-Splines-Methode implementieren')
+            resampled_signal_array = signal.resample_poly(
+                signal_array, 256, sample_rate, padtype='constant', cval=float('NaN')
+            )
+
+        # tidx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(old_sample_points))
+        # ^ NUR WENN OLD_POINTS mit Sample-Rate 256 aufgenommen wurden
+
+        idx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(new_sample_points))
+        resampled_signal_dtseries = pd.Series(resampled_signal_array, index=idx, name=signal_type)
+
+
+        # plt.plot(tidx, signal_array)
+        # plt.plot(idx, resampled_signal_array, c='gold')
+        # plt.show()
+        return resampled_signal_dtseries
