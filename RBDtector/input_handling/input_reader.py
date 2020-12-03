@@ -175,9 +175,8 @@ def __read_sleep_profile(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
         # create DataFrame with columns timestamps and sleep_events
         df = pd.DataFrame(
             {
-                'start_time': timestamps,
                 'sleep_phase': sleep_events
-            })
+            }, index=timestamps)
         df['sleep_phase'].astype('category')
 
         f.close()

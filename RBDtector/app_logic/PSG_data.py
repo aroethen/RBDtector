@@ -14,6 +14,7 @@ from scipy import interpolate, signal
 
 # DEFINITIONS
 SPLINES = True
+RATE = 256
 
 
 class PSGData:
@@ -63,25 +64,48 @@ class PSGData:
         # for key in self._raw_data.get_data_channels():
         #     print(key)
 
-        df = pd.DataFrame()
 
         signals_to_evaluate = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
         start_datetime = self._raw_data.get_header()['startdate']
 
+        # prepare DataFrame with DatetimeIndex
+        idx = self._create_datetime_index(start_datetime)
+        df = pd.DataFrame(index=idx)
+
+        # add sleep profile to df
+        sleep_profile = self._annotation_data.sleep_profile[1]
+        print(sleep_profile.index.max() + pd.Timedelta('30s'))
+
+        sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': 'A'},
+                                                          index=[sleep_profile.index.max() + pd.Timedelta('30s')])
+                                             )
+
+        df = pd.concat([df, sleep_profile.resample(str(1000/RATE)+'ms').ffill()], axis=1, join='inner')
+        # df.append(sleep_profile.resample(str(1000/RATE)+'ms').ffill())
+        print(df)
+
+
+
+
+
+
+
+
+
+
         for signal_type in signals_to_evaluate.copy():
             print(signal_type + ' start')
+
+            # Check if signal type exists in edf file
             try:
                 signal_array = self._raw_data.get_data_channels()[signal_type].get_signal()
             except KeyError as e:
                 signals_to_evaluate.remove(signal_type)
                 continue
 
-            resampled_signal_dtseries = self._signal_to_256hz_datetimeindexed_series(signal_array, signal_type,
+            # Resample to 256 Hz
+            df[signal_type] = self._signal_to_256hz_datetimeindexed_series(signal_array, signal_type,
                                                                                      start_datetime)
-            if df.empty:
-                df = resampled_signal_dtseries.to_frame()
-            else:
-                df[signal_type] = resampled_signal_dtseries
 
 
 
@@ -96,26 +120,37 @@ class PSGData:
 
         return None
 
+    def _create_datetime_index(self, start_datetime):
+        freq_in_ms = 1000 / RATE
+        emg_channel = self._raw_data.get_data_channels()['EMG']
+        sample_rate = emg_channel.get_sample_rate()
+        sample_length = len(emg_channel.get_signal())
+        index_length = (sample_length / sample_rate) * RATE
+        return pd.date_range(start_datetime, freq=str(freq_in_ms) + 'ms', periods=index_length)
+
     def _signal_to_256hz_datetimeindexed_series(self, signal_array, signal_type, start_datetime):
         sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
         duration_in_seconds = len(signal_array) / float(sample_rate)
         print(str(start_datetime) + ' ' + str(sample_rate) + ' ' + str(duration_in_seconds))
         old_sample_points = np.arange(len(signal_array))
-        new_sample_points = np.arange(len(signal_array), step=(sample_rate / 256.), dtype=np.double)
+        new_sample_points = np.arange(len(signal_array), step=(sample_rate / RATE), dtype=np.double)
 
         if SPLINES:
             tck = interpolate.splrep(old_sample_points, signal_array)
             resampled_signal_array = interpolate.splev(new_sample_points, tck)
         else:
             raise NotImplementedError('TODO - Non-Splines-Methode implementieren')
+            #TODO: - Non-Splines-Methode implementieren
             resampled_signal_array = signal.resample_poly(
-                signal_array, 256, sample_rate, padtype='constant', cval=float('NaN')
+                signal_array, RATE, sample_rate, padtype='constant', cval=float('NaN')
             )
 
         # tidx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(old_sample_points))
         # ^ NUR WENN OLD_POINTS mit Sample-Rate 256 aufgenommen wurden
 
-        idx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(new_sample_points))
+        freq_in_ms = 1000/RATE
+
+        idx = pd.date_range(start_datetime, freq=str(freq_in_ms)+'ms', periods=len(new_sample_points))
         resampled_signal_dtseries = pd.Series(resampled_signal_array, index=idx, name=signal_type)
 
 
