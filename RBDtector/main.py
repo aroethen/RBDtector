@@ -7,6 +7,7 @@ import logging
 from gui import gui
 from app_logic.PSG_data import PSGData
 
+DEV = True
 
 def calculate_results(input_dir, output_dir):
     data = PSGData(input_dir, output_dir)
@@ -22,5 +23,11 @@ if __name__ == "__main__":
     )
     logging.info('\n----------- START -----------')
     logging.info('Starting GUI')
-    gui.start_gui()
+
+    if DEV:
+        calculate_results("/home/annika/WORK/RBDtector/TESTS_FILES/iRBD0075",
+                          "/home/annika/WORK/RBDtector/TESTS_FILES/iRBD0075")
+
+    else:
+        gui.start_gui()
     # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code

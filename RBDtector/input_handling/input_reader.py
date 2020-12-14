@@ -228,9 +228,9 @@ def __read_flow_events(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
                 'event_onset': event_onsets,
                 'event_end_time': event_end_times,
                 'duration_in_seconds': durations_in_seconds,
-                'flow_event': flow_events
+                'event': flow_events
             })
-        df['flow_event'].astype('category')
+        df['event'].astype('category')
 
         f.close()
 
@@ -282,9 +282,9 @@ def __read_arousals(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
                 'event_onset': event_onsets,
                 'event_end_time': event_end_times,
                 'duration_in_seconds': durations_in_seconds,
-                'arousal': arousals
+                'event': arousals
             })
-        df['arousal'].astype('category')
+        df['event'].astype('category')
 
         f.close()
 
