@@ -111,7 +111,7 @@ class PSGData:
 
         # FOR EACH EMG SIGNAL:
         for signal_type in signals_to_evaluate.copy():
-            logging.log(signal_type + ' start')
+            logging.debug(signal_type + ' start')
 
             # Check if signal type exists in edf file
             try:
@@ -132,7 +132,7 @@ class PSGData:
             # add human rating boolean arrays
             df = self.add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type)
 
-            logging.log(signal_type + ' end')
+            logging.debug(signal_type + ' end')
 
         ############################################################################################################
         # DEV OUTPUT
@@ -186,7 +186,7 @@ class PSGData:
 
             # Create column for human rating of event type
             df[signal_type + '_human_' + event_type] = pd.Series(False, index=df.index)
-            logging.log(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE[event_type])
+            logging.debug(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE[event_type])
 
             # Get relevant annotations for column
             human_event_type_indices = \
@@ -237,9 +237,12 @@ class PSGData:
         sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': 'A'},
                                                           index=[sleep_profile.index.max() + pd.Timedelta('30s')])
                                              )
+        sleep_profile.sort_index(inplace=True)
+
         # resample sleep profile from 2Hz(30s intervals) to 256 Hz, fill all entries with the correct sleeping phase
         # and add it as column to dataframe
-        df = pd.concat([df, sleep_profile.resample(str(1000 / RATE) + 'ms').ffill()], axis=1, join='inner')
+        resampled_sleep_profile = sleep_profile.resample(str(1000 / RATE) + 'ms').ffill()
+        df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
         df['is_REM'] = df['sleep_phase'] == "REM"
         return df
 

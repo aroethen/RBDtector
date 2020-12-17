@@ -291,33 +291,45 @@ def __read_arousals(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
 
 
 def __read_baseline(filename: str, start_date: datetime.date) -> Dict[str, datetime.datetime]:
-    with open(filename, 'r', encoding='utf-8') as f:
-        text_in_lines = f.readlines()
-        baseline_dict, _ = __read_annotation_header(text_in_lines)
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            text_in_lines = f.readlines()
+            baseline_dict, _ = __read_annotation_header(text_in_lines)
 
-        for key, value in baseline_dict.items():
+            for key, value in baseline_dict.items():
 
-            if value.lower() == 'none':
-                baseline_dict[key] = ''
-                continue
-            else:
+                if value.lower() == 'none':
+                    baseline_dict[key] = ''
+                    continue
+                else:
 
-                value = value.split('-')
+                    value = value.split('-')
 
-                if isinstance(value, list):
-                    for i, time_string in enumerate(value):
+                    if isinstance(value, list):
+                        for i, time_string in enumerate(value):
 
-                        time_string = time_string.replace('.', ':')
+                            time_string = time_string.replace('.', ':')
 
-                        after_midnight = 0
-                        if datetime.time(0, 0, 0) <= datetime.datetime.strptime(time_string, '%H:%M:%S').time() < datetime.time(12, 0, 0):
-                            after_midnight = 1
+                            after_midnight = 0
+                            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(time_string, '%H:%M:%S').time() < datetime.time(12, 0, 0):
+                                after_midnight = 1
 
-                        value[i] = pd.to_datetime(str(start_date + datetime.timedelta(days=after_midnight))
-                                                  + ' ' + time_string, infer_datetime_format=True)
-                    baseline_dict[key] = value
+                            value[i] = pd.to_datetime(str(start_date + datetime.timedelta(days=after_midnight))
+                                                      + ' ' + time_string, infer_datetime_format=True)
+                        baseline_dict[key] = value
 
         return baseline_dict
+    except OSError as e:
+        logging.exception()
+        raise ErrorForDisplay('Baseline file: "' + filename + '" could not be opened') from e
+    except Exception as e:
+        logging.exception()
+        raise ErrorForDisplay('An error occurred while parsing the baseline file: "'
+                              + filename +
+                              '\nPlease check for errors inside the file.'
+                              '\nFull traceback information of the error is logged in logfile.txt.') from e
+
+
 
 
 def __read_human_rating(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
@@ -405,7 +417,7 @@ def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
     :return: Start date as date object
     """
     try:
-        start_time = pd.Timestamp(header['Start Time'])
+        start_time = pd.Timestamp(datetime.datetime.strptime(header['Start Time'], '%d.%m.%Y %H:%M:%S'))
         start_date = start_time.date()
 
     except KeyError as e:
