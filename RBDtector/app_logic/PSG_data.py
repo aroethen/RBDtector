@@ -20,7 +20,7 @@ import os.path
 SPLINES = True
 RATE = 256
 FLOW = True
-DEV = True
+DEV = False
 
 BASELINE_NAME = {
     'EMG': 'EMG REM baseline',
@@ -163,15 +163,15 @@ class PSGData:
         print(df.info())
         # REM PHASES
         plt.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
-                         facecolor='lightsteelblue', label="is_REM")
+                         facecolor='lightsteelblue', label="is_REM", alpha=0.7)
 
         # HUMAN RATING
         plt.fill_between(df.index.values, df['EMG_human_tonic']*(-1000), df['EMG_human_tonic']*1000,
                          facecolor='mediumorchid', label="EMG_human_tonic")
-        plt.fill_between(df.index.values, df['EMG_human_phasic']*(-1000), df['EMG_human_phasic']*1000,
-                         facecolor='deeppink', label="EMG_human_phasic")
         plt.fill_between(df.index.values, df['EMG_human_intermediate']*(-1000), df['EMG_human_intermediate']*1000,
                          facecolor='violet', label="EMG_human_intermediate")
+        plt.fill_between(df.index.values, df['EMG_human_phasic']*(-1000), df['EMG_human_phasic']*1000,
+                         facecolor='deeppink', label="EMG_human_phasic")
         plt.fill_between(df.index.values, df['EMG_human_artefact']*(-1000), df['EMG_human_artefact']*1000,
                          facecolor='maroon', label="EMG_human_artefact")
 
@@ -207,30 +207,23 @@ class PSGData:
         return df
 
     def add_artefacts_to_df(self, df):
-        # TODO: OPTIMIZE FOR SPEED!!!
 
-        # get arousals, add them as string to 'artefact_event' column and mark as 'arousal' in 'artefact_type' column
         arousals: pd.DataFrame = self._annotation_data.arousals[1]
-        df['artefact_event'] = ''
+        df['artefact_event'] = pd.Series(False, index=df.index)
         for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
-            # df.loc[on:off, ['artefact_event']].str.cat += label
-            # df.loc[on:off, ['artefact_event']] = df.artefact_event[on:off].apply(lambda x: '#'.join([x, label]))
-            df.loc[on:off, ['artefact_event']] = df.loc[on:off, ['artefact_event']] + label
-            # df.update(df.loc[on:off, ['artefact_event']].applymap(lambda x: '#'.join([x, label])))
+            df.loc[on:off, ['artefact_event']] = True
 
         if FLOW:
-            # get flow events, add them as string to 'artefact_event' column and mark as 'flow' in 'artefact_type'
-            # column make that part optional via FLOW "macro"
             flow_events = self._annotation_data.flow_events[1]
-            df['flow_event'] = ''
+            df['flow_event'] = pd.Series(False, index=df.index)
             for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
-                df.loc[on:off, ['flow_event']] = df.loc[on:off, ['flow_event']] + label
+                df.loc[on:off, ['flow_event']] = True
 
         # add conditional column 'is_artefact'
         if FLOW:
-            df['is_artefact'] = np.logical_or(df['artefact_event'].astype(bool), df['flow_event'].astype(bool))
+            df['is_artefact'] = np.logical_or(df['artefact_event'], df['flow_event'])
         else:
-            df['is_artefact'] = df['artefact_event'].astype(bool)
+            df['is_artefact'] = df['artefact_event']
 
         return df
 
