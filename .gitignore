@@ -9,3 +9,5 @@ venv/
 *.pyc
 logfile.txt
 Visualisierungen/
+.coverage
+stats_script/output_tables/

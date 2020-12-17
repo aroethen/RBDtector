@@ -18,7 +18,6 @@ from data_structures.annotation_data import AnnotationData
 from util.error_for_display import ErrorForDisplay
 
 
-
 FILE_FINDER = {
     'edf': '*.edf',
     'sleep_profile': '*Sleep profile*',

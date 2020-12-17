@@ -30,6 +30,21 @@ BASELINE_NAME = {
     'Akti.': 'AKTI REM baseline'
 }
 
+HUMAN_RATING_LABEL = {
+    'EMG': 'Chin',
+    'PLM l': 'LeftLeg',
+    'PLM r': 'RightLeg',
+    'AUX': 'LeftArm',       #TODO: VERIFY ARMS LEFT/RIGHT MAPPING
+    'Akti.': 'RightArm'
+}
+
+EVENT_TYPE = {
+    'tonic': 'Tonic',
+    'intermediate': 'Any',
+    'phasic': 'Phasic',
+    'artefact': 'Artifact'
+}
+
 
 class PSGData:
 
@@ -95,6 +110,11 @@ class PSGData:
             # pickle for further DEV use as long as adding artefacts into df is time consuming
             df.to_pickle(os.path.join(self.output_path, 'pickledDF'))
 
+        # process human rating for evaluation per signal and event
+        human_rating = self._annotation_data.human_rating[1]
+        human_rating_label_dict = human_rating.groupby('event').groups
+        print(human_rating_label_dict)
+
         # FOR EACH EMG SIGNAL:
         for signal_type in signals_to_evaluate.copy():
             print(signal_type + ' start')
@@ -114,19 +134,58 @@ class PSGData:
 
             # find all samples with at least 2x baseline in REM
             df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
-            print(df[signal_type].where(df[signal_type + '_isGE2xBaseline']).dropna())
+            # print(df[signal_type].where(df[signal_type + '_isGE2xBaseline']).dropna())
+
+            # add human rating boolean arrays
+
+            # Human tonic columns for signal type and respective events
+            # df[signal_type + '_human_tonic'] = pd.Series(False, index=df.index)
+            #
+            # df[signal_type + '_human_intermediate'] = pd.Series(False, index=df.index)
+
+            for event_type in EVENT_TYPE.keys():
+                print('Event type: ' + event_type)
+                df[signal_type + '_human_' + event_type] = pd.Series(False, index=df.index)
+
+                print(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE[event_type])
+                human_event_type_indices = \
+                    human_rating_label_dict.get(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE[event_type], [])
+                print(human_event_type_indices)
+                for idx in human_event_type_indices:
+                    print(human_rating.iloc[idx]['event_onset'])
+                    df.loc[
+                        human_rating.iloc[idx]['event_onset']:human_rating.iloc[idx]['event_end_time'],
+                        [signal_type + '_human_' + event_type]
+                    ] = True
+
             print(signal_type + ' end')
 
-        print(df)
-        plt.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000, facecolor='lightsteelblue', label="is_REM")
+        print(df.info())
+        # REM PHASES
+        plt.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
+                         facecolor='lightsteelblue', label="is_REM")
+
+        # HUMAN RATING
+        plt.fill_between(df.index.values, df['EMG_human_tonic']*(-1000), df['EMG_human_tonic']*1000,
+                         facecolor='mediumorchid', label="EMG_human_tonic")
+        plt.fill_between(df.index.values, df['EMG_human_phasic']*(-1000), df['EMG_human_phasic']*1000,
+                         facecolor='deeppink', label="EMG_human_phasic")
+        plt.fill_between(df.index.values, df['EMG_human_intermediate']*(-1000), df['EMG_human_intermediate']*1000,
+                         facecolor='violet', label="EMG_human_intermediate")
+        plt.fill_between(df.index.values, df['EMG_human_artefact']*(-1000), df['EMG_human_artefact']*1000,
+                         facecolor='maroon', label="EMG_human_artefact")
+
         # plt.fill_between(df.index.values, 0, , facecolor='lightsteelblue')
-        plt.plot(df.index.values, df['EMG'], c='cornflowerblue', label="EMG")
+        plt.plot(df.index.values, df['EMG'], c='#313133', label="EMG")
         plt.plot(df['EMG_baseline'], c='mediumseagreen', label="EMG_baseline")
         plt.plot(df['EMG_baseline']*(-1), c='mediumseagreen')
         plt.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
         plt.scatter(df.index.values, df['EMG'].where(df['EMG' + '_isGE2xBaseline']), s=4, c='lime',
                     label='EMG GE 2x Baseline')
-        plt.legend(loc='lower right')
+
+        plt.fill_between(df.index.values, df['is_artefact'] * (-200), df['is_artefact'] * 200,
+                         facecolor='dimgrey', label="is_artefact", alpha=0.7, zorder=10)
+        plt.legend(loc='upper right')
         plt.show()
 
 
