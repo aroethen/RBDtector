@@ -23,7 +23,7 @@ SPLINES = True
 RATE = 256
 FREQ = '3.90625ms'
 FLOW = True
-COUNT_BASED_ACTIVITY = True
+COUNT_BASED_ACTIVITY = False
 DEV = True
 
 BASELINE_NAME = {
@@ -166,30 +166,9 @@ class PSGData:
             df[signal_type + '_two_times_baseline_and_valid'] = \
                 df[signal_type + '_isGE2xBaseline'] & df['artefact_free_rem_sleep_miniepoch']
 
-            # find version of increased activity
-            if COUNT_BASED_ACTIVITY:
-                series_to_resample = df[signal_type + '_two_times_baseline_and_valid'].astype(int)
-                increased_in_point05s = series_to_resample\
-                    .resample('50ms')\
-                    .sum()\
-                    .apply(lambda x: x > 2)
-                # inc_a = increased_in_point05s.sum().ffill()
-                df[signal_type + '_increased_activity'] = increased_in_point05s
-                df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].fillna(method='ffill')
+            df = self.find_increased_activity(df, signal_type, COUNT_BASED_ACTIVITY)
 
-            else:
-                valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
-                increased_array = valid_signal.to_numpy()
-                increased_series = pd.Series(increased_array)
-                increased_series = increased_series.pow(2)
-                increased_in_point05s = increased_series.groupby(increased_series.index // int(RATE * 0.05))
-                inc_a = increased_in_point05s.mean().apply(np.sqrt)
-                inc_r = inc_a.repeat(int(RATE * 0.05))
-                df[signal_type + '_increased_activity'] = \
-                    inc_r[:df.index.size].to_numpy() > 2 * df[signal_type + '_baseline'].to_numpy()
-
-
-            # find increased sustained activity
+        # find increased sustained activity
             # activity_array = df[signal_type + '_increased_activity'].to_numpy()
             # activity_series = pd.Series(activity_array)
             # # increased_series = increased_series.pow(2)
@@ -268,6 +247,65 @@ class PSGData:
         # plt.show()
         ############################################################################################################
 
+        return df
+
+    def find_increased_activity(self, df: pd.DataFrame, signal_type: str, count_based_activity: bool = False):
+        """
+        :param df: Datetimeindexed pandas.Dataframe containing columns:
+            df[signal_type]: float
+            df['artefact_free_rem_sleep_miniepoch']: bool
+            df[signal_type + '_two_times_baseline_and_valid']: bool
+            df[signal_type + '_baseline']
+        :param signal_type: Signal type to find and create df[signal_type + '_increased_activity'] for
+        :param count_based_activity:
+            True: increased activity defined as more than 2 values of a 50ms interval bigger than 2x baseline
+            False: increased activity defined as RMS of a 50ms interval is bigger than 2x baseline
+        :return: Updated Dataframe
+        """
+
+        if count_based_activity:
+            series_to_resample = df[signal_type + '_two_times_baseline_and_valid'].astype(int)
+            increased_in_point05s = series_to_resample \
+                .resample('50ms') \
+                .sum() \
+                .apply(lambda x: x > 2)
+            df[signal_type + '_increased_activity'] = increased_in_point05s
+            df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].fillna(method='ffill')
+
+            increased_in_point05s = series_to_resample \
+                .resample('50ms', offset='25ms') \
+                .sum() \
+                .apply(lambda x: x > 2)
+            df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s.resample(FREQ).ffill()
+            df[signal_type + '_increased_activity'] = np.logical_or(
+                df[signal_type + '_increased_activity'],
+                df[signal_type + '_increased_activity_with_offset']
+            )
+
+        else:
+            valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
+            valid_signal = valid_signal.pow(2)
+            increased_in_point05s = valid_signal \
+                .resample('50ms') \
+                .mean() \
+                .apply(np.sqrt)
+            df[signal_type + '_increased_activity'] = increased_in_point05s
+            df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].ffill()
+            df[signal_type + '_increased_activity'] = \
+                df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
+
+            increased_in_point05s_with_offset = valid_signal \
+                .resample('50ms', offset='25ms') \
+                .mean() \
+                .apply(np.sqrt)
+            increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(FREQ).ffill()
+            df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
+            df[signal_type + '_increased_activity_with_offset'] = \
+                df[signal_type + '_increased_activity_with_offset'] > (2 * df[signal_type + '_baseline'])
+            df[signal_type + '_increased_activity'] = np.logical_or(
+                df[signal_type + '_increased_activity'],
+                df[signal_type + '_increased_activity_with_offset']
+            )
         return df
 
     def add_human_rating_for_signal_type_to_df(self, df, human_rating, human_rating_label_dict, signal_type):
