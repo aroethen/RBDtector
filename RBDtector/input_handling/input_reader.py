@@ -28,11 +28,13 @@ FILE_FINDER = {
 }
 
 
-def read_input(directory_name: str) -> Tuple[RawData, AnnotationData]:
+def read_input(directory_name: str, signals_to_load: List[str] = None) -> Tuple[RawData, AnnotationData]:
     """
     Reads input data from files in given directory into (RawData, AnnotationData)
 
     :param directory_name: relative or absolute path to input directory
+    :param signals_to_load: a list of strings containing all signal names to be loaded from edf file.
+                Passing None results in all signals being loaded. Defaults to None.
     :returns: Tuple filled with data from the input files in order: (RawData, AnnotationData)
     :raises OSError: if directory_name is not an existing directory
     :raises FileExistsError: if more than one file of a type are found
@@ -40,7 +42,7 @@ def read_input(directory_name: str) -> Tuple[RawData, AnnotationData]:
     """
 
     filenames = __find_files(directory_name)
-    raw_data: RawData = __read_edf(filenames['edf'])
+    raw_data: RawData = __read_edf(filenames['edf'], signals_to_load)
     del filenames['edf']
     annotation_data: AnnotationData = __read_txt_files(filenames)
     return raw_data, annotation_data
@@ -78,9 +80,13 @@ def __find_files(directory_name: str) -> Dict[str, str]:
             files[file_type] = tmp_files[0]
             logging.debug('{}: {}'.format(file_type, files[file_type]))
         elif len(tmp_files) > 1:
-            raise ErrorForDisplay(
-                'Too many files of type {} in input directory ({})'.format(file_identifier, abs_dir)
-            )
+            if file_type == 'human_rating':
+                files[file_type] = tmp_files[0]
+                # TODO: Read in all human rating files (not only first one found)
+            else:
+                raise ErrorForDisplay(
+                    'Too many files of type {} in input directory ({})'.format(file_identifier, abs_dir)
+                )
 
     if 'edf' not in files:
         raise ErrorForDisplay('No EDF files were found in input directory ({}). '
@@ -89,15 +95,17 @@ def __find_files(directory_name: str) -> Dict[str, str]:
     return files
 
 
-def __read_edf(edf: str) -> RawData:
+def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
     """
     Reads an .edf file using pyEDFlib and stores its data inside a RawData return object
     :param edf: path to .edf file
+    :param signals_to_load: a list of strings containing all signal names to be loaded from edf file.
+                Passing None results in all signals being loaded. Defaults to None.
     :returns: RawData object containing all information of .edf file
     """
     logging.debug('Start reading .edf files')
 
-    signals, signal_headers, header = highlevel.read_edf(edf)
+    signals, signal_headers, header = highlevel.read_edf(edf, ch_names=signals_to_load)   # TODO: Only load needed signals!!!
 
     if len(signals) != len(signal_headers):
         raise ValueError('Input .edf file has a different amount of signal_headers and signals.')
