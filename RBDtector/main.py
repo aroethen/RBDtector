@@ -7,7 +7,7 @@ import logging
 from gui import gui
 from app_logic.PSG_data import PSGData
 
-DEV = True
+DEV = False
 
 def calculate_results(input_dir, output_dir):
     data = PSGData(input_dir, output_dir)
