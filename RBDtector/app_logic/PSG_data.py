@@ -155,38 +155,52 @@ class PSGData:
         else:
             df = pd.read_pickle(os.path.join(self.output_path, 'pickledDF'))
 
-        for signal_type in ['EMG']:
         # for signal_type in signal_names:      TODO: NACH DEV WIEDER DIESE VARIANTE VERWENDEN!!!
-            # TONIC ################################################################################################
+        for signal_type in ['EMG']:
 
-            # find all samples with at least 2x baseline in REM
+            # find increased activity
             df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
-
 
             df[signal_type + '_two_times_baseline_and_valid'] = \
                 df[signal_type + '_isGE2xBaseline'] & df['artefact_free_rem_sleep_miniepoch']
 
             df = self.find_increased_activity(df, signal_type, COUNT_BASED_ACTIVITY)
 
-        # find increased sustained activity
-            # activity_array = df[signal_type + '_increased_activity'].to_numpy()
-            # activity_series = pd.Series(activity_array)
-            # # increased_series = increased_series.pow(2)
-            #
-            # point1s_grouper = activity_series.groupby(increased_series.index // int(RATE * 0.1))
-            #
-            # sustained_before_filling_gaps = point1s_grouper\
-            #     .any()\
-            #     .repeat(int(RATE * 0.1))
-            # df[signal_type + '_sustained_before_filling_gaps'] = \
-            #     sustained_before_filling_gaps[:df.index.size].to_numpy()
+            # find increased sustained activity
+            continuous_vals_gt_min_start = df[signal_type + '_increased_activity']\
+                .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()])\
+                .transform('size')\
+                .gt(RATE * 0.1)
+            df[signal_type + '_min_sustained_activity'] = \
+                continuous_vals_gt_min_start & df[signal_type + '_increased_activity']
+
+            continuous_vals_gt_min_end = df[signal_type + '_increased_activity']\
+                .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()])\
+                .transform('size')\
+                .lt(RATE * 0.25)
+            df[signal_type + '_max_tolerable_gaps'] = \
+                continuous_vals_gt_min_end & ~df[signal_type + '_increased_activity']
+
+            sustained_activity = df[signal_type + '_min_sustained_activity']
+            new_sustained_activity = pd.Series()
+
+            while not sustained_activity.equals(new_sustained_activity):
+                new_sustained_activity = \
+                    sustained_activity.astype(int)\
+                    + df[signal_type + '_max_tolerable_gaps'].astype(int) * 3
+                diffs = new_sustained_activity.diff().replace(to_replace=0, method='ffill').eq(2).fillna(0).astype(bool)
 
 
-            # df[signal_type + '_point1continuous'] = df[signal_type + '_point05s_contains_activity']\
-            #     .rolling('100ms')\
-            #     .apply(lambda x: x.any())\
-            #     .asfreq('3.90625ms')\
-            #     .bfill()
+                print(diffs)
+
+                df['diffs'] = diffs
+
+
+
+                break # TODO: Delete break after one cycle works
+
+
+            # TONIC ################################################################################################
 
 
         logging.debug(signal_type + ' end')
@@ -209,10 +223,12 @@ class PSGData:
         ax.fill_between(df.index.values, df['EMG' + '_increased_activity']*(-50),
                         df['EMG' + '_increased_activity']*50, alpha=0.7, facecolor='yellow',
                         label="0.05s contains activity", zorder=4)
-        # ax.fill_between(df.index.values, df['EMG' + '_sustained_before_filling_gaps']*(-25),
-        #                 df['EMG' + '_sustained_before_filling_gaps']*25, alpha=0.7, facecolor='orange',
-        #                 label="sustained_before_filling_gaps", zorder=4)
-
+        ax.fill_between(df.index.values, (df['EMG' + '_min_sustained_activity'])*(-25),
+                        (df['EMG' + '_min_sustained_activity'])*25, alpha=0.7, facecolor='orange',
+                        label="minimum_sustained_activity (0.1s)", zorder=4)
+        ax.fill_between(df.index.values, (df['EMG' + '_max_tolerable_gaps'])*(-25),
+                        (df['EMG' + '_max_tolerable_gaps'])*25, alpha=0.7, facecolor='lightcoral',
+                        label="Gaps > 0.25s between increased activity", zorder=4)
 
         # HUMAN RATING OF CHIN EMG
         # ax.fill_between(df.index.values, df['EMG_human_tonic']*(-1000), df['EMG_human_tonic']*1000,
@@ -228,7 +244,6 @@ class PSGData:
         #                  facecolor='#993404', label="miniepoch_contains_artefact", alpha=0.7, zorder=4)
 
 
-
         # EMG CHIN
         ax.plot(df.index.values, df['EMG'], c='#313133', label="EMG", zorder=4)
         ax.plot(df['EMG_baseline'], c='mediumseagreen', label="EMG_baseline", zorder=4)
@@ -236,6 +251,7 @@ class PSGData:
         ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
         ax.scatter(df.index.values, df['EMG'].where(df['EMG' + '_two_times_baseline_and_valid']), s=4, c='lime',
                     label='Increased activity', zorder=4)
+        ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
 
         # ARTEFACTS CHIN
         # ax.fill_between(df.index.values, df['is_artefact'] * (-200), df['is_artefact'] * 200,
@@ -258,7 +274,7 @@ class PSGData:
             df[signal_type + '_baseline']
         :param signal_type: Signal type to find and create df[signal_type + '_increased_activity'] for
         :param count_based_activity:
-            True: increased activity defined as more than 2 values of a 50ms interval bigger than 2x baseline
+            True: increased activity defined as more than 3 values of a 50ms interval bigger than 2x baseline
             False: increased activity defined as RMS of a 50ms interval is bigger than 2x baseline
         :return: Updated Dataframe
         """
@@ -268,19 +284,21 @@ class PSGData:
             increased_in_point05s = series_to_resample \
                 .resample('50ms') \
                 .sum() \
-                .apply(lambda x: x > 2)
+                .apply(lambda x: x > 3)
+            increased_in_point05s = increased_in_point05s.resample(FREQ).ffill()
             df[signal_type + '_increased_activity'] = increased_in_point05s
-            df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].fillna(method='ffill')
+            df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity']
 
-            increased_in_point05s = series_to_resample \
+            increased_in_point05s_with_offset = series_to_resample \
                 .resample('50ms', offset='25ms') \
                 .sum() \
-                .apply(lambda x: x > 2)
-            df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s.resample(FREQ).ffill()
+                .apply(lambda x: x > 3)
+            increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(FREQ).ffill()
+            df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
             df[signal_type + '_increased_activity'] = np.logical_or(
                 df[signal_type + '_increased_activity'],
                 df[signal_type + '_increased_activity_with_offset']
-            )
+            ).fillna(False)
 
         else:
             valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
@@ -294,17 +312,19 @@ class PSGData:
             df[signal_type + '_increased_activity'] = \
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
 
+            valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
+            valid_signal = valid_signal.pow(2)
             increased_in_point05s_with_offset = valid_signal \
                 .resample('50ms', offset='25ms') \
                 .mean() \
                 .apply(np.sqrt)
             increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(FREQ).ffill()
-            df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
-            df[signal_type + '_increased_activity_with_offset'] = \
-                df[signal_type + '_increased_activity_with_offset'] > (2 * df[signal_type + '_baseline'])
+            increased_activity_with_offset= pd.Series(increased_in_point05s_with_offset, index=df.index)
+            increased_activity_with_offset = \
+                increased_activity_with_offset > (2 * df[signal_type + '_baseline'])
             df[signal_type + '_increased_activity'] = np.logical_or(
                 df[signal_type + '_increased_activity'],
-                df[signal_type + '_increased_activity_with_offset']
+                increased_activity_with_offset
             )
         return df
 
