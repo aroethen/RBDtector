@@ -25,8 +25,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        calculate_results("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_01",
-                          "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_01")
+        calculate_results("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02",
+                          "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02")
 
     else:
         gui.start_gui()
