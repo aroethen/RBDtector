@@ -3,10 +3,6 @@ import numpy as np
 import os
 from typing import Tuple, Dict
 
-# class csv_writer():
-#     def __init__(self):
-#         pass
-
 
 def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame], calculated_data: pd.DataFrame = None):
     """

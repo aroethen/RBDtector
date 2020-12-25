@@ -14,17 +14,12 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate
 
-# dev dependencies
-import matplotlib.pyplot as plt
-# import os.path
-
 # DEFINITIONS
 SPLINES = True
 RATE = 256
 FREQ = '3.90625ms'
 FLOW = True
 COUNT_BASED_ACTIVITY = False
-DEV = False
 
 BASELINE_NAME = {
     'EMG': 'EMG REM baseline',
@@ -81,13 +76,14 @@ class PSGData:
         self._output_path = output_path
 
     def generate_output(self):
-        if not DEV:
-            logging.debug('PSGData starting to generate output')
-            self._read_data()
+        logging.debug('PSGData starting to generate output')
+        self._read_data()
         self._calculated_data = self._process_data()
-        if not DEV:
-            human_rater_data = self._annotation_data.get_human_rating()
-            csv_writer.write_output(self._output_path, human_rating=human_rater_data, calculated_data=self._calculated_data)
+
+        human_rater_data = self._annotation_data.get_human_rating()
+        csv_writer.write_output(self._output_path,
+                                human_rating=human_rater_data,
+                                calculated_data=self._calculated_data)
 
 # PRIVATE FUNCTIONS
     def _read_data(self):
@@ -97,69 +93,61 @@ class PSGData:
         self._annotation_data = data[1]
 
     def _process_data(self) -> pd.DataFrame:
-        # TODO: returns calculated data in form that can be used by output writer
-        if not DEV:
-            start_datetime = self._raw_data.get_header()['startdate']
-            signal_names = SIGNALS_TO_EVALUATE.copy()
 
-            # prepare DataFrame with DatetimeIndex
-            idx = self._create_datetime_index(start_datetime)
-            df = pd.DataFrame(index=idx)
+        start_datetime = self._raw_data.get_header()['startdate']
+        signal_names = SIGNALS_TO_EVALUATE.copy()
 
-            # add sleep profile to df
-            df = self.add_sleep_profile_to_df(df)
+        # prepare DataFrame with DatetimeIndex
+        idx = self._create_datetime_index(start_datetime)
+        df = pd.DataFrame(index=idx)
 
-            # add artefacts to df
-            df = self.add_artefacts_to_df(df)
+        # add sleep profile to df
+        df = self.add_sleep_profile_to_df(df)
 
-            # cut off all samples before start of sleep_profile assessment
-            start_of_first_full_sleep_phase = df['sleep_phase'].ne('A').idxmax()
-            df = df[start_of_first_full_sleep_phase:]
+        # add artefacts to df
+        df = self.add_artefacts_to_df(df)
 
-            # find all phasic miniepochs of artifact-free REM sleep
-            artefact_signal = df['is_artefact'].squeeze()
-            artefact_in_3s_miniepoch = artefact_signal \
-                .resample('3s') \
-                .sum()\
-                .gt(0)
-            df['miniepoch_contains_artefact'] = artefact_in_3s_miniepoch
-            df['miniepoch_contains_artefact'] = df['miniepoch_contains_artefact'].ffill()
-            df['artefact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artefact']
+        # cut off all samples before start of sleep_profile assessment
+        start_of_first_full_sleep_phase = df['sleep_phase'].ne('A').idxmax()
+        df = df[start_of_first_full_sleep_phase:]
 
-            # process human rating for evaluation per signal and event
-            human_rating = self._annotation_data.human_rating[1]
-            human_rating_label_dict = human_rating.groupby('event').groups
-            logging.debug(human_rating_label_dict)
+        # find all 3s miniepochs of artifact-free REM sleep
+        artefact_signal = df['is_artefact'].squeeze()
+        artefact_in_3s_miniepoch = artefact_signal \
+            .resample('3s') \
+            .sum()\
+            .gt(0)
+        df['miniepoch_contains_artefact'] = artefact_in_3s_miniepoch
+        df['miniepoch_contains_artefact'] = df['miniepoch_contains_artefact'].ffill()
+        df['artefact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artefact']
 
-            # FOR EACH EMG SIGNAL:
-            for signal_type in signal_names.copy():
-                logging.debug(signal_type + ' start')
+        # process human rating for evaluation per signal and event
+        human_rating = self._annotation_data.human_rating[1]
+        human_rating_label_dict = human_rating.groupby('event').groups
+        logging.debug(human_rating_label_dict)
 
-                # Check if signal type exists in edf file
-                try:
-                    signal_array = self._raw_data.get_data_channels()[signal_type].get_signal()
-                except KeyError:
-                    signal_names.remove(signal_type)
-                    continue
+        # FOR EACH EMG SIGNAL:
+        for signal_type in signal_names.copy():
+            logging.debug(signal_type + ' start')
 
-                # Resample to 256 Hz
-                df[signal_type] = self._signal_to_256hz_datetimeindexed_series(
-                    signal_array, signal_type, start_datetime
-                )[start_of_first_full_sleep_phase:]
+            # Check if signal type exists in edf file
+            try:
+                signal_array = self._raw_data.get_data_channels()[signal_type].get_signal()
+            except KeyError:
+                signal_names.remove(signal_type)
+                continue
 
-                # add signal type baseline column
-                df = self.add_signal_baseline_to_df(df, signal_type)
+            # Resample to 256 Hz
+            df[signal_type] = self._signal_to_256hz_datetimeindexed_series(
+                signal_array, signal_type, start_datetime
+            )[start_of_first_full_sleep_phase:]
 
-                # add human rating boolean arrays
-                df = self.add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type)
+            # add signal type baseline column
+            df = self.add_signal_baseline_to_df(df, signal_type)
 
-            df.to_pickle(os.path.join(self.output_path, 'pickledDF'))
+            # add human rating boolean arrays
+            df = self.add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type)
 
-        else:
-            df = pd.read_pickle(os.path.join(self.output_path, 'pickledDF'))
-
-        for signal_type in signal_names:      # TODO: NACH DEV AN OBERE SCHLEIFE ANGLIEDERN!!!
-            # for signal_type in ['EMG']:
             # find increased activity
             df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
 
@@ -186,82 +174,7 @@ class PSGData:
             df = self.find_phasic_activity_and_miniepochs(df, signal_type)
 
             df = self.find_any_activity_and_miniepochs(df, signal_type)
-
-        logging.debug(signal_type + ' end')
-
-
-        ############################################################################################################
-        # DEV OUTPUT
-
-        print(df.info())
-        df = df.iloc[(df.index.size//2)+(df.index.size//8):] #-(df.index.size//6)
-        signal_type = 'PLM l'
-
-        fig, ax = plt.subplots()
-        # REM PHASES
-        # ax.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
-        #                  facecolor='gainsboro', label="is_REM", alpha=0.7)
-        ax.fill_between(df.index.values, df['artefact_free_rem_sleep_miniepoch'] * (-750),
-                        df['artefact_free_rem_sleep_miniepoch'] * 750,
-                        facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
-
-        # ACTIVITIES
-        # ax.fill_between(df.index.values, df[signal_type + '_increased_activity']*(-50),
-        #                 df[signal_type + '_increased_activity']*50, alpha=0.7, facecolor='yellow',
-        #                 label="0.05s contains activity", zorder=4)
-        # ax.fill_between(df.index.values, (df[signal_type + '_min_sustained_activity'])*(-25),
-        #                 (df[signal_type + '_min_sustained_activity'])*25, alpha=0.7, facecolor='orange',
-        #                 label="minimum_sustained_activity (0.1s)", zorder=4)
-        # ax.fill_between(df.index.values, (df[signal_type + '_max_tolerable_gaps'])*(-25),
-        #                 (df[signal_type + '_max_tolerable_gaps'])*25, alpha=0.7, facecolor='lightcoral',
-        #                 label="Gaps > 0.25s between increased activity", zorder=4)
-
-        ax.fill_between(df.index.values, (df[signal_type + '_any_activity'])*(-40),
-                        (df[signal_type + '_any_activity'])*40, alpha=0.7, facecolor='orange',
-                        label="Any activity", zorder=4)
-        ax.plot(df[signal_type + '_any_miniepochs']*40, alpha=0.7, c='orange',
-                        label="Any activity miniepoch", zorder=4)
-        ax.fill_between(df.index.values, (df[signal_type + '_tonic'])*(-25),
-                        (df[signal_type + '_tonic'])*25, alpha=0.9, facecolor='gold',
-                        label="Tonic epoch", zorder=4)
-        ax.fill_between(df.index.values, (df[signal_type + '_phasic_activity'])*(-75),
-                        (df[signal_type + '_phasic_activity'])*75, alpha=0.9, facecolor='yellow',
-                        label="Phasic activity", zorder=4)
-        ax.plot(df[signal_type + '_phasic_miniepochs']*75, alpha=0.7, c='yellow',
-                        label="Phasic activity miniepoch", zorder=4)
-
-        # HUMAN RATING OF CHIN EMG
-        ax.fill_between(df.index.values, df[signal_type + '_human_tonic']*(-1000), df[signal_type + '_human_tonic']*1000,
-                         facecolor='aqua', label=signal_type + "_human_tonic")
-        ax.fill_between(df.index.values, df[signal_type + '_human_intermediate']*(-1000), df[signal_type + '_human_intermediate']*1000,
-                         facecolor='deepskyblue', label=signal_type + "_human_intermediate")
-        ax.fill_between(df.index.values, df[signal_type + '_human_phasic']*(-1000), df[signal_type + '_human_phasic']*1000,
-                         facecolor='royalblue', label=signal_type + "_human_phasic", alpha=0.7)
-        # ax.fill_between(df.index.values, df[signal_type + '_human_artefact']*(-1000), df[signal_type + '_human_artefact']*1000,
-        #                  facecolor='maroon', label=signal_type + "_human_artefact")
-        # ax.fill_between(df.index.values, df['miniepoch_contains_artefact'] * (-75),
-        #                  df['miniepoch_contains_artefact'] * 75,
-        #                  facecolor='#993404', label="miniepoch_contains_artefact", alpha=0.7, zorder=4)
-
-
-        # EMG SIGNAL TYPE
-        ax.plot(df.index.values, df[signal_type], c='#313133', label=signal_type, alpha=0.8, zorder=4)
-        ax.plot(df[signal_type + '_baseline'], c='mediumseagreen', label=signal_type + "_baseline", zorder=4)
-        ax.plot(df[signal_type + '_baseline']*(-1), c='mediumseagreen', zorder=4)
-        ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
-        ax.scatter(df.index.values, df[signal_type].where(df[signal_type + '_two_times_baseline_and_valid']), s=4, c='lime',
-                    label='Increased activity', zorder=4)
-        # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
-
-        # ARTEFACTS
-        # ax.fill_between(df.index.values, df['is_artefact'] * (-200), df['is_artefact'] * 200,
-        #                  facecolor='#dfc27d', label="is_artefact", alpha=0.7, zorder=3)
-        ax.legend(loc='upper left', facecolor='white', framealpha=1)
-        plt.show()
-
-        # plt.plot(resampled_signal_dtseries.index.values, resampled_signal_dtseries.values)
-        # plt.show()
-        ############################################################################################################
+            logging.debug(signal_type + ' end')
 
         return df
 
