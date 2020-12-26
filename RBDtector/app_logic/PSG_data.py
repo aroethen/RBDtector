@@ -83,7 +83,8 @@ class PSGData:
         human_rater_data = self._annotation_data.get_human_rating()
         csv_writer.write_output(self._output_path,
                                 human_rating=human_rater_data,
-                                calculated_data=self._calculated_data)
+                                calculated_data=self._calculated_data,
+                                signal_names=SIGNALS_TO_EVALUATE)
 
 # PRIVATE FUNCTIONS
     def _read_data(self):

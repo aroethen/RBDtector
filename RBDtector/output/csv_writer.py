@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
 import os
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 
 
-def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame], calculated_data: pd.DataFrame = None):
+def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame],
+                 calculated_data: pd.DataFrame = None,
+                 signal_names: List[str] = None):
     """
     Writes calculated annotations and human rater annotations into csv and xlsx tables for further evaluation 
     and for displaying the respective annotations with the third-party application EDFBrowser.
@@ -23,4 +25,11 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame],
     df_for_edfBrowser.to_csv(os.path.join(output_path, 'csv_annotations_for_edfBrowser.txt'), index=False)
 
     df.to_csv(os.path.join(output_path, 'csv_output.txt'), index=False)
+
+    df = calculated_data
+    df_for_stats_output = pd.DataFrame({'mode': })
+    for signal_type in signal_names.copy():
+
+
+
 

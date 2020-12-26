@@ -9,7 +9,7 @@ from ttkthemes import ThemedTk
 import logging
 
 # internal
-import main
+from app_logic.PSG_data import PSGData
 from util.error_for_display import ErrorForDisplay
 
 # global variables
@@ -85,7 +85,8 @@ def _trigger_calculation(input_dir, output_dir):
                      'Selected output dir: {}'.format(input_dir, output_dir))
 
         try:
-            main.calculate_results(input_dir, output_dir)
+            data = PSGData(input_dir, output_dir)
+            data.generate_output()
 
         except ErrorForDisplay as e:
 

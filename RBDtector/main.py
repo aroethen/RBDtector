@@ -9,11 +9,6 @@ from app_logic.PSG_data import PSGData
 
 DEV = False
 
-def calculate_results(input_dir, output_dir):
-    data = PSGData(input_dir, output_dir)
-    data.generate_output()
-
-
 if __name__ == "__main__":
     logging.basicConfig(
         filename='logfile.txt',
@@ -25,8 +20,9 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        calculate_results("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02",
-                          "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02")
+        data = PSGData("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02",
+                       "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02")
+        data.generate_output()
 
     else:
         gui.start_gui()
