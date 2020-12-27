@@ -14,12 +14,18 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate
 
+# dev dependencies
+import matplotlib.pyplot as plt
+
 # DEFINITIONS
 SPLINES = True
 RATE = 256
 FREQ = '3.90625ms'
 FLOW = True
 COUNT_BASED_ACTIVITY = False
+MIN_SUSTAINED = 0.1
+
+DEV = False
 
 BASELINE_NAME = {
     'EMG': 'EMG REM baseline',
@@ -76,13 +82,20 @@ class PSGData:
         self._output_path = output_path
 
     def generate_output(self):
+    # if not DEV:
         logging.debug('PSGData starting to generate output')
         self._read_data()
         self._calculated_data = self._process_data()
 
-        human_rater_data = self._annotation_data.get_human_rating()
+    #     # pickle for further DEV use as long as adding artefacts into df is time consuming
+    #     self._calculated_data.to_pickle(os.path.join(self.output_path, 'pickledDF'))
+    #     print(self._calculated_data.info())
+    #
+    # if DEV:
+    #     self._calculated_data = pd.read_pickle(os.path.join(self.output_path, 'pickledDF'))
+
+        # human_rater_data = self._annotation_data.get_human_rating()
         csv_writer.write_output(self._output_path,
-                                human_rating=human_rater_data,
                                 calculated_data=self._calculated_data,
                                 signal_names=SIGNALS_TO_EVALUATE)
 
@@ -176,6 +189,83 @@ class PSGData:
 
             df = self.find_any_activity_and_miniepochs(df, signal_type)
             logging.debug(signal_type + ' end')
+        print(df.info())
+
+        # ############################################################################################################
+        # # DEV OUTPUT
+        #
+        # # print(df.info())
+        # # df = df.iloc[(df.index.size // 2) + (df.index.size // 8):]  # -(df.index.size//6)
+        # signal_type = 'EMG'
+        #
+        # fig, ax = plt.subplots()
+        # # REM PHASES
+        # # ax.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
+        # #                  facecolor='gainsboro', label="is_REM", alpha=0.7)
+        # ax.fill_between(df.index.values, df['artefact_free_rem_sleep_miniepoch'] * (-750),
+        #                 df['artefact_free_rem_sleep_miniepoch'] * 750,
+        #                 facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
+        #
+        # # ACTIVITIES
+        # # ax.fill_between(df.index.values, df[signal_type + '_increased_activity']*(-50),
+        # #                 df[signal_type + '_increased_activity']*50, alpha=0.7, facecolor='yellow',
+        # #                 label="0.05s contains activity", zorder=4)
+        # # ax.fill_between(df.index.values, (df[signal_type + '_min_sustained_activity'])*(-25),
+        # #                 (df[signal_type + '_min_sustained_activity'])*25, alpha=0.7, facecolor='orange',
+        # #                 label="minimum_sustained_activity (0.1s)", zorder=4)
+        # # ax.fill_between(df.index.values, (df[signal_type + '_max_tolerable_gaps'])*(-25),
+        # #                 (df[signal_type + '_max_tolerable_gaps'])*25, alpha=0.7, facecolor='lightcoral',
+        # #                 label="Gaps > 0.25s between increased activity", zorder=4)
+        #
+        # ax.fill_between(df.index.values, (df[signal_type + '_any']) * (-40),
+        #                 (df[signal_type + '_any']) * 40, alpha=0.7, facecolor='orange',
+        #                 label="Any activity", zorder=4)
+        # # ax.plot(df[signal_type + '_any_miniepochs'] * 40, alpha=0.7, c='orange',
+        # #         label="Any activity miniepoch", zorder=4)
+        # ax.fill_between(df.index.values, (df[signal_type + '_tonic']) * (-25),
+        #                 (df[signal_type + '_tonic']) * 25, alpha=0.9, facecolor='gold',
+        #                 label="Tonic epoch", zorder=4)
+        # ax.fill_between(df.index.values, (df[signal_type + '_phasic']) * (-75),
+        #                 (df[signal_type + '_phasic']) * 75, alpha=0.9, facecolor='yellow',
+        #                 label="Phasic activity", zorder=4)
+        # ax.plot(df[signal_type + '_phasic_miniepochs'] * 75, alpha=0.7, c='deeppink',
+        #         label="Phasic activity miniepoch", zorder=4)
+        #
+        # # HUMAN RATING OF CHIN EMG
+        # ax.fill_between(df.index.values, df[signal_type + '_human_tonic'] * (-1000),
+        #                 df[signal_type + '_human_tonic'] * 1000,
+        #                 facecolor='aqua', label=signal_type + "_human_tonic")
+        # ax.fill_between(df.index.values, df[signal_type + '_human_intermediate'] * (-1000),
+        #                 df[signal_type + '_human_intermediate'] * 1000,
+        #                 facecolor='deepskyblue', label=signal_type + "_human_intermediate")
+        # ax.fill_between(df.index.values, df[signal_type + '_human_phasic'] * (-1000),
+        #                 df[signal_type + '_human_phasic'] * 1000,
+        #                 facecolor='royalblue', label=signal_type + "_human_phasic", alpha=0.7)
+        # # ax.fill_between(df.index.values, df[signal_type + '_human_artefact']*(-1000), df[signal_type + '_human_artefact']*1000,
+        # #                  facecolor='maroon', label=signal_type + "_human_artefact")
+        # # ax.fill_between(df.index.values, df['miniepoch_contains_artefact'] * (-75),
+        # #                  df['miniepoch_contains_artefact'] * 75,
+        # #                  facecolor='#993404', label="miniepoch_contains_artefact", alpha=0.7, zorder=4)
+        #
+        # # EMG SIGNAL TYPE
+        # ax.plot(df.index.values, df[signal_type], c='#313133', label=signal_type, alpha=0.8, zorder=4)
+        # ax.plot(df[signal_type + '_baseline'], c='mediumseagreen', label=signal_type + "_baseline", zorder=4)
+        # ax.plot(df[signal_type + '_baseline'] * (-1), c='mediumseagreen', zorder=4)
+        # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
+        # ax.scatter(df.index.values, df[signal_type].where(df[signal_type + '_two_times_baseline_and_valid']), s=4,
+        #            c='lime',
+        #            label='Increased activity', zorder=4)
+        # # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
+        #
+        # # ARTEFACTS
+        # # ax.fill_between(df.index.values, df['is_artefact'] * (-200), df['is_artefact'] * 200,
+        # #                  facecolor='#dfc27d', label="is_artefact", alpha=0.7, zorder=3)
+        # ax.legend(loc='upper left', facecolor='white', framealpha=1)
+        # plt.show()
+        #
+        # # plt.plot(resampled_signal_dtseries.index.values, resampled_signal_dtseries.values)
+        # # plt.show()
+        # ############################################################################################################
 
         return df
 
@@ -185,15 +275,15 @@ class PSGData:
         :param df: pandas.Dataframe containing columns
                     df[signal_type + '_sustained_activity'] and df[signal_type + '_tonic']
         :param signal_type: name of signal as str as used in the naming of the relevant df columns
-        :return: original df with added columns df[signal_type + '_any_activity'] and
+        :return: original df with added columns df[signal_type + '_any'] and
                 df[signal_type + '_any_miniepochs']
         """
 
         # find 'any' activity
-        df[signal_type + '_any_activity'] = df[signal_type + '_sustained_activity'] | df[signal_type + '_tonic']
+        df[signal_type + '_any'] = df[signal_type + '_sustained_activity'] | df[signal_type + '_tonic']
 
         # find 'any' miniepochs
-        any_in_3s_miniepoch = df[signal_type + '_any_activity'].squeeze() \
+        any_in_3s_miniepoch = df[signal_type + '_any'].squeeze() \
             .resample('3s') \
             .sum() \
             .gt(0)
@@ -208,7 +298,7 @@ class PSGData:
         :param df: pandas.Dataframe containing column df[signal_type + '_sustained_activity']
         :param signal_type: name of signal as str as used in the naming of the df[signal_type + '_sustained_activity']
                 column
-        :return: original df with added columns df[signal_type + '_phasic_activity'] and
+        :return: original df with added columns df[signal_type + '_phasic'] and
                 df[signal_type + '_phasic_miniepochs']
         """
 
@@ -217,10 +307,10 @@ class PSGData:
             .groupby([df[signal_type + '_sustained_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
             .le(RATE * 5)
-        df[signal_type + '_phasic_activity'] = continuous_phasic_sustained_activity.ffill()
+        df[signal_type + '_phasic'] = continuous_phasic_sustained_activity.ffill()
 
         # find phasic miniepochs
-        phasic_in_3s_miniepoch = df[signal_type + '_phasic_activity'].squeeze() \
+        phasic_in_3s_miniepoch = df[signal_type + '_phasic'].squeeze() \
             .resample('3s') \
             .sum() \
             .gt(0)
@@ -257,7 +347,7 @@ class PSGData:
 
     def find_increased_sustained_activity(self, df, signal_type):
         """
-        Finds increased sustained activity defined as increased activity of at least 0.1 seconds with no gaps bigger
+        Finds increased sustained activity defined as increased activity of at least MIN_SUSTAINED seconds with no gaps bigger
         than 0.25s.
         :param df: pandas.Dataframe that contains a datetimeindexed column df[signal_type + '_increased_activity']
         :param signal_type: name of signal as str as used in the naming of the df[signal_type + '_increased_activity']
@@ -267,7 +357,7 @@ class PSGData:
         continuous_vals_gt_min_start = df[signal_type + '_increased_activity'] \
             .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .gt(RATE * 0.1)
+            .gt(RATE * MIN_SUSTAINED)
         min_sustained_activity = \
             continuous_vals_gt_min_start & df[signal_type + '_increased_activity']
 
@@ -408,9 +498,27 @@ class PSGData:
                     [signal_type + '_human_' + event_type]
                 ] = True
 
+        # adaptions to phasic
+        df[signal_type + '_human_phasic'] = df[signal_type + '_human_phasic'] & df['artefact_free_rem_sleep_miniepoch']
+
+        phasic_in_3s_miniepoch = df[signal_type + '_human_phasic'].squeeze() \
+            .resample('3s') \
+            .sum() \
+            .gt(0)
+        df[signal_type + '_human_phasic_miniepochs'] = phasic_in_3s_miniepoch
+        df[signal_type + '_human_phasic_miniepochs'] = df[signal_type + '_human_phasic_miniepochs'].ffill()
+
+        # adaptions to any
         df[signal_type + '_human_any'] = df[signal_type + '_human_tonic'] | \
                                          df[signal_type + '_human_intermediate'] | \
                                          df[signal_type + '_human_phasic']
+
+        any_in_3s_miniepoch = df[signal_type + '_human_any'].squeeze() \
+            .resample('3s') \
+            .sum() \
+            .gt(0)
+        df[signal_type + '_human_any_miniepochs'] = any_in_3s_miniepoch
+        df[signal_type + '_human_any_miniepochs'] = df[signal_type + '_human_any_miniepochs'].ffill()
 
         return df
 

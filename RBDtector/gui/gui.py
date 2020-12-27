@@ -1,4 +1,5 @@
 # tkinter
+import datetime
 import tkinter.messagebox
 import tkinter.filedialog
 from tkinter import ttk
@@ -85,9 +86,11 @@ def _trigger_calculation(input_dir, output_dir):
                      'Selected output dir: {}'.format(input_dir, output_dir))
 
         try:
+            start_time = datetime.datetime.now()
             data = PSGData(input_dir, output_dir)
             data.generate_output()
-
+            end_time = datetime.datetime.now()
+            print('Overall calculation time: ' + str(end_time - start_time))
         except ErrorForDisplay as e:
 
             tkinter.messagebox.showerror(
