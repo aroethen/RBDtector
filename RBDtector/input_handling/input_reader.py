@@ -28,23 +28,30 @@ FILE_FINDER = {
 }
 
 
-def read_input(directory_name: str, signals_to_load: List[str] = None) -> Tuple[RawData, AnnotationData]:
+def read_input(directory_name: str, signals_to_load: List[str] = None, read_baseline=True, read_edf=True) -> Tuple[RawData, AnnotationData]:
     """
     Reads input data from files in given directory into (RawData, AnnotationData)
+
 
     :param directory_name: relative or absolute path to input directory
     :param signals_to_load: a list of strings containing all signal names to be loaded from edf file.
                 Passing None results in all signals being loaded. Defaults to None.
+    :param read_baseline: boolean value whether to read baseline data from file
     :returns: Tuple filled with data from the input files in order: (RawData, AnnotationData)
     :raises OSError: if directory_name is not an existing directory
     :raises FileExistsError: if more than one file of a type are found
     :raises FileNotFoundError: if no EDF files are found
     """
-
     filenames = __find_files(directory_name)
-    raw_data: RawData = __read_edf(filenames['edf'], signals_to_load)
+
+    if read_edf:
+        raw_data: RawData = __read_edf(filenames['edf'], signals_to_load)
+    else:
+        raw_data = None
+
     del filenames['edf']
-    annotation_data: AnnotationData = __read_txt_files(filenames)
+
+    annotation_data: AnnotationData = __read_txt_files(filenames, read_baseline)
     return raw_data, annotation_data
 
 
@@ -77,12 +84,18 @@ def __find_files(directory_name: str) -> Dict[str, str]:
     for file_type, file_identifier in FILE_FINDER.items():
         tmp_files = glob.glob(os.path.join(abs_dir, file_identifier))
         if len(tmp_files) == 1:
-            files[file_type] = tmp_files[0]
-            logging.debug('{}: {}'.format(file_type, files[file_type]))
+            if file_type == 'human_rating':
+                files[file_type] = tmp_files
+                logging.debug('{}: {}'.format(file_type, files[file_type]))
+            else:
+                files[file_type] = tmp_files[0]
+                logging.debug('{}: {}'.format(file_type, files[file_type]))
+
         elif len(tmp_files) > 1:
             if file_type == 'human_rating':
-                files[file_type] = tmp_files[0]
-                # TODO: Read in all human rating files (not only first one found)
+                tmp_files.sort()
+                files[file_type] = tmp_files
+                logging.debug('{}: {}'.format(file_type, files[file_type]))
             else:
                 raise ErrorForDisplay(
                     'Too many files of type {} in input directory ({})'.format(file_identifier, abs_dir)
@@ -120,7 +133,7 @@ def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
     return RawData(header, data_channels)
 
 
-def __read_txt_files(filenames: Dict[str, str]) -> AnnotationData:
+def __read_txt_files(filenames: Dict, read_baseline: bool = True) -> AnnotationData:
     """
     Reads data of all sleep
     :param filenames:
@@ -131,9 +144,14 @@ def __read_txt_files(filenames: Dict[str, str]) -> AnnotationData:
     sleep_profile = __read_sleep_profile(filenames['sleep_profile'])
     flow_events = __read_flow_events(filenames['flow_events'])
     arousals = __read_arousals(filenames['arousals'])
-    baseline = __read_baseline(filenames['baseline'],
-                               start_date=__find_start_date(sleep_profile[0], filenames['sleep_profile']))
-    human_rating = __read_human_rating(filenames['human_rating'])
+
+    start_date = __find_start_date(sleep_profile[0], filenames['sleep_profile'])
+    if read_baseline:
+        baseline = __read_baseline(filenames['baseline'], start_date=start_date)
+    else:
+        baseline = None
+
+    human_rating = __read_human_rating(filenames['human_rating'], start_date=start_date)
 
     logging.debug('.txt files read')
     return AnnotationData(sleep_profile, flow_events, arousals, baseline, human_rating)
@@ -328,66 +346,65 @@ def __read_baseline(filename: str, start_date: datetime.date) -> Dict[str, datet
 
         return baseline_dict
     except OSError as e:
-        logging.exception()
+        logging.exception(e)
         raise ErrorForDisplay('Baseline file: "' + filename + '" could not be opened') from e
     except Exception as e:
-        logging.exception()
+        logging.exception(e)
         raise ErrorForDisplay('An error occurred while parsing the baseline file: "'
                               + filename +
                               '\nPlease check for errors inside the file.'
                               '\nFull traceback information of the error is logged in logfile.txt.') from e
 
 
+def __read_human_rating(filenames: List[str], start_date) -> Tuple[Dict[str, str], pd.DataFrame]:
+    human_rating = []
 
+    for filename in filenames:
+        with open(filename, 'r', encoding='utf-8') as f:
+            text_in_lines = f.readlines()
+            header, first_line_of_data = __read_annotation_header(text_in_lines)
 
-def __read_human_rating(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
+            event_onsets = []
+            event_end_times = []
+            events = []
 
-    with open(filename, 'r', encoding='utf-8') as f:
-        text_in_lines = f.readlines()
-        header, first_line_of_data = __read_annotation_header(text_in_lines)
-        start_date = __find_start_date(header, filename)
+            # Loop over times, durations and events and read them into respective lists
+            for line in text_in_lines[first_line_of_data:]:
+                split_list = line.split('-', 1)
+                event_onset = split_list[0].strip()
+                split_list2 = str(split_list[1]).split(';')
+                event_end_time = split_list2[0].strip()
+                event = split_list2[1].strip()
 
-        event_onsets = []
-        event_end_times = []
-        events = []
+                onset_after_midnight = 0
+                end_after_midnight = 0
 
-        # Loop over times, durations and events and read them into respective lists
-        for line in text_in_lines[first_line_of_data:]:
-            split_list = line.split('-', 1)
-            event_onset = split_list[0].strip()
-            split_list2 = str(split_list[1]).split(';')
-            event_end_time = split_list2[0].strip()
-            event = split_list2[1].strip()
+                if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_onset, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                    onset_after_midnight = 1
+                if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_end_time, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
+                    end_after_midnight = 1
 
-            onset_after_midnight = 0
-            end_after_midnight = 0
+                onset_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=onset_after_midnight))
+                                                 + ' ' + event_onset, infer_datetime_format=True)
+                end_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=end_after_midnight))
+                                               + ' ' + event_end_time, infer_datetime_format=True)
 
-            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_onset, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
-                onset_after_midnight = 1
-            if datetime.time(0, 0, 0) <= datetime.datetime.strptime(event_end_time, '%H:%M:%S,%f').time() < datetime.time(12, 0, 0):
-                end_after_midnight = 1
+                event_onsets.append(onset_timestamp)
+                event_end_times.append(end_timestamp)
+                events.append(event)
 
-            onset_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=onset_after_midnight))
-                                             + ' ' + event_onset, infer_datetime_format=True)
-            end_timestamp = pd.to_datetime(str(start_date + datetime.timedelta(days=end_after_midnight))
-                                           + ' ' + event_end_time, infer_datetime_format=True)
+            # create DataFrame with filled lists as columns
+            df = pd.DataFrame(
+                {
+                    'event_onset': event_onsets,
+                    'event_end_time': event_end_times,
+                    'event': events
+                })
+            df['event'].astype('category')
+            human_rating.append((header, df))
+            f.close()
 
-            event_onsets.append(onset_timestamp)
-            event_end_times.append(end_timestamp)
-            events.append(event)
-
-        # create DataFrame with filled lists as columns
-        df = pd.DataFrame(
-            {
-                'event_onset': event_onsets,
-                'event_end_time': event_end_times,
-                'event': events
-            })
-        df['event'].astype('category')
-
-        f.close()
-
-        return header, df
+    return human_rating
 
 
 def __read_annotation_header(text_in_lines: List[str]) -> Tuple[Dict[str, str], int]:

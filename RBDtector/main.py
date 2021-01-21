@@ -7,7 +7,7 @@ import logging
 from gui import gui
 from app_logic.PSG_data import PSGData
 
-DEV = False
+DEV = True
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -20,8 +20,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        data = PSGData("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_03",
-                       "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_03")
+        data = PSGData("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02",
+                       "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02")
         data.generate_output()
 
     else:

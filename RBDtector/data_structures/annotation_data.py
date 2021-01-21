@@ -1,5 +1,5 @@
 # python modules
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 
 # external dependencies
 import pandas as pd
@@ -12,7 +12,7 @@ class AnnotationData:
         self.flow_events: Tuple[Dict[str, str], pd.DataFrame] = flow_events
         self.arousals: Tuple[Dict[str, str], pd.DataFrame] = arousals
         self.baseline = baseline
-        self.human_rating: Tuple[Dict[str, str], pd.DataFrame] = human_rating
+        self.human_rating: List[Tuple[Dict[str, str]], pd.DataFrame] = human_rating
 
     def get_human_rating(self):
         return self.human_rating

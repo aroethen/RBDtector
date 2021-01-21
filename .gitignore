@@ -1,14 +1,21 @@
-Projektplanung/
-Sonstiges/
-Testfiles/
-TESTS_FILES/
-trials/
+## RBDtector intrinsic output
+logfile.txt
+
+## Virtual environment
 venv/
+
+## VSC
 .idea/
+
+## Testing and debugging
 *.pyo
 *.pyc
-logfile.txt
-Visualisierungen/
 .coverage
+
+## Own directory structure
+Non-Coding-Content/
+TESTS_FILES/
 stats_script/output_tables/
-Seminararbeit/
+trials/
+
+
