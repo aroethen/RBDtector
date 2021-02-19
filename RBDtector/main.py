@@ -8,6 +8,7 @@ from gui import gui
 from app_logic.PSG_data import PSGData
 
 DEV = True
+import os
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -20,9 +21,14 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        data = PSGData("/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMG_Test_01",
-                       "/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMG_Test_01")
-        data.generate_output()
+        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
+        dirlist = os.listdir(path)
+        for child in dirlist:
+            abs_child = os.path.join(path, child)
+            if os.path.isdir(abs_child):
+                if 'comparison_pickle' not in os.listdir(abs_child):
+                    data = PSGData(abs_child, abs_child)
+                    data.generate_output()
 
     else:
         gui.start_gui()
