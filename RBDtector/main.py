@@ -20,8 +20,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        data = PSGData("/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02",
-                       "/home/annika/WORK/RBDtector/TESTS_FILES/EMG_Test_02")
+        data = PSGData("/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMG_Test_01",
+                       "/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMG_Test_01")
         data.generate_output()
 
     else:

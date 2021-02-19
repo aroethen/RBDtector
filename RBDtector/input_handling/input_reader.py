@@ -33,6 +33,7 @@ def read_input(directory_name: str, signals_to_load: List[str] = None, read_base
     Reads input data from files in given directory into (RawData, AnnotationData)
 
 
+    :param read_edf:
     :param directory_name: relative or absolute path to input directory
     :param signals_to_load: a list of strings containing all signal names to be loaded from edf file.
                 Passing None results in all signals being loaded. Defaults to None.
@@ -46,16 +47,16 @@ def read_input(directory_name: str, signals_to_load: List[str] = None, read_base
 
     if read_edf:
         raw_data: RawData = __read_edf(filenames['edf'], signals_to_load)
+        filenames.pop('edf')
     else:
         raw_data = None
-
-    del filenames['edf']
 
     annotation_data: AnnotationData = __read_txt_files(filenames, read_baseline)
     return raw_data, annotation_data
 
 
-def __find_files(directory_name: str) -> Dict[str, str]:
+
+def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, str]:
     """
     Finds EDF and text files in given directory by predefined key words
 
@@ -102,8 +103,12 @@ def __find_files(directory_name: str) -> Dict[str, str]:
                 )
 
     if 'edf' not in files:
-        raise ErrorForDisplay('No EDF files were found in input directory ({}). '
-                              'Calculation stopped.'.format(abs_dir))
+        if not find_annotation_only:
+            raise ErrorForDisplay('No EDF files were found in input directory ({}). '
+                                  'Calculation stopped.'.format(abs_dir))
+    else:
+        if find_annotation_only:
+            files.pop('edf')
 
     return files
 
@@ -135,7 +140,7 @@ def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
 
 def __read_txt_files(filenames: Dict, read_baseline: bool = True) -> AnnotationData:
     """
-    Reads data of all sleep
+    Reads data of all polysomnography annotation files
     :param filenames:
     :return:
     """

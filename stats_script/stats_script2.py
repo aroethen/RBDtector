@@ -8,10 +8,13 @@ import os
 import re
 import logging
 import datetime
-from itertools import chain
+
+import multiprocessing as mp
 
 from RBDtector.input_handling import input_reader
 from RBDtector.data_structures import *
+
+import cProfile
 
 SPLINES = True
 RATE = 256
@@ -55,39 +58,60 @@ EVENT_TYPE = {
 SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
 
 
-def generate_descripive_statistics(dirname='../Non-Coding-Content/EMG'):
+def generate_descripive_statistics(dirname='../Profiling_test'):
+
     human_rated_dirs = find_all_human_rated_directories(dirname)
-    output_df = pd.DataFrame()
-    first_dir = True
+    s1 = pd.Series(name=('General', '', 'Subject'))
+    s2 = pd.Series(name=('General', '', 'Artifact-free REM sleep miniepochs'))
+    new_order = ['General']
+    new_order.extend(SIGNALS_TO_EVALUATE)
+    h1_vs_h2_raters = ('Rater 1', 'Rater 2')
+    h1_vs_h2_df = pd.DataFrame(index=generate_multiindex(*h1_vs_h2_raters))\
+        .append(s1).append(s2).reindex(new_order, level=0)
+    rbdtector_vs_h1_raters = ('RBDtector', 'Rater 1')
+    rbdtector_vs_h1 = pd.DataFrame(index=generate_multiindex(*rbdtector_vs_h1_raters))\
+        .append(s1).append(s2).reindex(new_order, level=0)
+    rbdtector_vs_h2_raters = ('RBDtector', 'Rater 2')
+    rbdtector_vs_h2 = pd.DataFrame(index=generate_multiindex(*rbdtector_vs_h2_raters))\
+        .append(s1).append(s2).reindex(new_order, level=0)
 
     for dirtuple in human_rated_dirs:
-        # create row and add subject
-
         # read directory input
-        raw_data, annotation_data = input_reader.read_input(dirtuple[1], read_baseline=False)
-
+        _, annotation_data = input_reader.read_input(dirtuple[1], read_baseline=False, read_edf=False)
+        rbdtector_data = pd.read_pickle(os.path.join(dirtuple[1], 'comparison_pickle'))
+        print(rbdtector_data)
         # generate dataframe with REM sleep, artifacts and labels per rater
-        df = generate_evaluation_dataframe(raw_data, annotation_data)
-
-        # compare and count epochs / miniepochs
-        row_df = compare_and_count_epochs(df)
-        row_df['Subject'] = dirtuple[0]
-        if first_dir:
-            output_df = row_df.copy()
-            first_dir = False
-        else:
-            output_df = output_df.append(row_df)
+        evaluation_df = generate_evaluation_dataframe(annotation_data, rbdtector_data)
+        h1_vs_h2_df = fill_in_comparison_data(h1_vs_h2_df, evaluation_df, dirtuple[0], h1_vs_h2_raters)
+        rbdtector_vs_h1 = fill_in_comparison_data(rbdtector_vs_h1, evaluation_df, dirtuple[0], rbdtector_vs_h1_raters)
+        rbdtector_vs_h2 = fill_in_comparison_data(rbdtector_vs_h2, evaluation_df, dirtuple[0], rbdtector_vs_h2_raters)
 
 
-    # columns = ['Subject']
-    # quality_columns = list(chain.from_iterable((col + ' [s]', col + ' [% REM]') for col in QUALITIES))
-    # columns.extend(quality_columns)
-
-    print(df)
+    print(evaluation_df)
     # output_filename = os.path.join('output_tables', '{}_human_scoring_table'.format(os.path.basename(dirname)))
     #
-    output_df.to_csv(dirname + '/human_rater_comparison.csv')
-    output_df.to_excel(dirname + '/human_rater_comparison.xlsx')
+    h1_vs_h2_df.to_csv(dirname + '/human_rater_comparison.csv')
+    h1_vs_h2_df.to_excel(dirname + '/human_rater_comparison.xlsx')
+
+
+def fill_in_comparison_data(h1_vs_h2_df, evaluation_df, subject, raters):
+
+    return h1_vs_h2_df
+
+
+def generate_multiindex(r1, r2):
+    factors = (
+        SIGNALS_TO_EVALUATE,
+        ('tonic', 'phasic', 'any'),
+        (
+            'shared pos', 'shared neg',
+            r1 + ' abs pos', r1 + ' % pos', r1 + ' pos only',
+            r2 + ' abs pos', r2 + ' % pos', r2 + ' pos only',
+            'Cohen\'s Kappa'
+        )
+    )
+    index = pd.MultiIndex.from_product(factors, names=["Signal", "Category", 'Description'])
+    return index
 
 
 def find_all_human_rated_directories(directory_name) -> List[Tuple[str, str]]:
@@ -118,31 +142,29 @@ def find_all_human_rated_directories(directory_name) -> List[Tuple[str, str]]:
             subdirectories.remove(subdir)
 
     subdirectories.sort(key=lambda t: t[0])
+    if not subdirectories:
+        raise FileNotFoundError('No subdirectory with two human rater files and a sleep profile file found.')
 
     return subdirectories
 
 
-def generate_evaluation_dataframe(raw_data, annotation_data):
+def generate_evaluation_dataframe(annotation_data, rbdtector_data):
     """
     Generate dataframe with REM sleep, artifacts and labels per rater and event type
+    :param annotation_data:
+    :param rbdtector_data:
     :return: pandas Dataframe
     """
-    start_datetime = raw_data.get_header()['startdate']
     signal_names = SIGNALS_TO_EVALUATE.copy()
 
-    # prepare DataFrame with DatetimeIndex
-    idx = create_datetime_index(raw_data, start_datetime)
-    df = pd.DataFrame(index=idx)
-
     # add sleep profile to df
-    df = add_sleep_profile_to_df(df, annotation_data)
+    df = generate_sleep_profile_df(annotation_data)
 
     # add artefacts to df
     df = add_artefacts_to_df(df, annotation_data)
 
-    # cut off all samples before start of sleep_profile assessment
-    start_of_first_full_sleep_phase = df['sleep_phase'].ne('A').idxmax()
-    df = df[start_of_first_full_sleep_phase:]
+    # add RBDtector ratings to df
+    df = pd.concat([df, rbdtector_data], axis=1)
 
     # find all 3s miniepochs of artifact-free REM sleep
     artefact_signal = df['is_artefact'].squeeze()
@@ -169,18 +191,6 @@ def generate_evaluation_dataframe(raw_data, annotation_data):
     # FOR EACH EMG SIGNAL:
     for signal_type in signal_names.copy():
         logging.debug(signal_type + ' start')
-
-        # Check if signal type exists in edf file
-        try:
-            signal_array = raw_data.get_data_channels()[signal_type].get_signal()
-        except KeyError:
-            signal_names.remove(signal_type)
-            continue
-
-        # Resample to 256 Hz
-        df[signal_type] = signal_to_256hz_datetimeindexed_series(
-            raw_data, signal_array, signal_type, start_datetime
-        )[start_of_first_full_sleep_phase:]
 
         # add human rating boolean arrays
         df = add_human_rating_for_signal_type_to_df(df, human_rating1, human_rating1_label_dict, signal_type, 'rater1')
@@ -272,7 +282,7 @@ def add_artefacts_to_df(df, annotation_data):
     return df
 
 
-def add_sleep_profile_to_df(df: pd.DataFrame, annotation_data) -> pd.DataFrame:
+def generate_sleep_profile_df(annotation_data) -> pd.DataFrame:
     sleep_profile: pd.DataFrame = annotation_data.sleep_profile[1]
 
     # append a final row to sleep profile with "Artifact" sleep phase
@@ -282,53 +292,17 @@ def add_sleep_profile_to_df(df: pd.DataFrame, annotation_data) -> pd.DataFrame:
                                          )
     sleep_profile.sort_index(inplace=True)
 
-    # resample sleep profile from 2Hz(30s intervals) to 256 Hz, fill all entries with the correct sleeping phase
+    # resample sleep profile from 30s intervals to 256 Hz, fill all entries with the correct sleeping phase
     # and add it as column to dataframe
-    resampled_sleep_profile = sleep_profile.resample(str(1000 / RATE) + 'ms').ffill()
-    df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
-    df['is_REM'] = df['sleep_phase'] == "REM"
+    resampled_sleep_profile = sleep_profile.resample(FREQ).ffill()
+    # df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
+
+    start_datetime = datetime.datetime.strptime(annotation_data.sleep_profile[0]['Start Time'], '%d.%m.%Y %H:%M:%S')
+    end_datetime = resampled_sleep_profile.index.max()
+    idx = pd.date_range(start_datetime, end_datetime, freq=FREQ)
+    df = pd.DataFrame(index=idx)
+    df['is_REM'] = resampled_sleep_profile['sleep_phase'] == "REM"
     return df
-
-
-def create_datetime_index(raw_data, start_datetime):
-    freq_in_ms = 1000 / RATE
-    emg_channel = raw_data.get_data_channels()['EMG']
-    sample_rate = emg_channel.get_sample_rate()
-    sample_length = len(emg_channel.get_signal())
-    index_length = (sample_length / sample_rate) * RATE
-    return pd.date_range(start_datetime, freq=str(freq_in_ms) + 'ms', periods=index_length)
-
-
-def signal_to_256hz_datetimeindexed_series(raw_data, signal_array, signal_type, start_datetime):
-    sample_rate = raw_data.get_data_channels()[signal_type].get_sample_rate()
-    duration_in_seconds = len(signal_array) / float(sample_rate)
-    old_sample_points = np.arange(len(signal_array))
-    new_sample_points = np.arange(len(signal_array), step=(sample_rate / RATE), dtype=np.double)
-
-    if SPLINES:
-        tck = interpolate.splrep(old_sample_points, signal_array)
-        resampled_signal_array = interpolate.splev(new_sample_points, tck)
-    else:
-        raise NotImplementedError('TODO - Non-Splines-Methode implementieren')
-        # TODO: - Non-Splines-Methode implementieren
-        # resampled_signal_array = signal.resample_poly(
-        #     signal_array, RATE, sample_rate, padtype='constant', cval=float('NaN')
-        # )
-
-    # tidx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(old_sample_points))
-    # ^ NUR WENN OLD_POINTS mit Sample-Rate 256 aufgenommen wurden
-
-    freq_in_ms = 1000/RATE
-
-    idx = pd.date_range(start_datetime, freq=str(freq_in_ms)+'ms', periods=len(new_sample_points))
-    resampled_signal_dtseries = pd.Series(resampled_signal_array, index=idx, name=signal_type)
-
-
-    # plt.plot(tidx, signal_array)
-    # plt.plot(idx, resampled_signal_array, c='gold')
-    # plt.show()
-    return resampled_signal_dtseries
-
 
 def find_start_date_in_file(sleep_profile):
 
@@ -350,17 +324,17 @@ def find_start_date_in_file(sleep_profile):
 def compare_and_count_epochs(df):
     df_out = pd.DataFrame()
 
-    df_out['rem_sleep_duration_in_s'] = pd.Series(df['is_REM'].sum() / 256)
-    df['artifact_free_rem_sleep_in_s'] = pd.Series(df['artefact_free_rem_sleep_miniepoch'].sum() / 256)
+    df_out['rem_sleep_duration_in_s'] = pd.Series(df['is_REM'].sum() / RATE)
+    df_out['artifact_free_rem_sleep_in_s'] = pd.Series(df['artefact_free_rem_sleep_miniepoch'].sum() / RATE)
     shared_phasic_miniepochs = {}
     shared_any_miniepochs = {}
     shared_tonic_epochs = {}
 
     for signal in SIGNALS_TO_EVALUATE.copy():
         shared_phasic_miniepochs[signal] = (df[signal + '_human_rater1_phasic_miniepochs'] & df[signal + '_human_rater2_phasic_miniepochs'])\
-                                               .sum() / (256 * 3)
+                                               .sum() / (RATE * 3)
         shared_any_miniepochs[signal] = (df[signal + '_human_rater1_phasic_miniepochs'] & df[signal + '_human_rater2_phasic_miniepochs'])\
-                                               .sum() / (256 * 3)
+                                               .sum() / (RATE * 3)
         shared_tonic_epochs[signal] = {}
 
         for category in ['tonic', 'phasic', 'any']:
@@ -369,53 +343,26 @@ def compare_and_count_epochs(df):
                     (
                             df[signal + '_human_rater1_{}_epochs'.format(category)] &
                             df[signal + '_human_rater2_{}_epochs'.format(category)]
-                    ).sum() / (256 * 30)
+                    ).sum() / (RATE * 30)
             else:
                 df_out['{}_shared_{}_miniepochs'.format(signal, category)] = \
                     (
                             df[signal + '_human_rater1_{}_miniepochs'.format(category)] &
                             df[signal + '_human_rater2_{}_miniepochs'.format(category)]
-                    ).sum() / (256 * 3)
+                    ).sum() / (RATE * 3)
 
             for rater in ['_human_rater1', '_human_rater2']:
                 if category == 'tonic':
-                    # df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] = pd.Series(
-                    #     df[signal + '{}_{}'.format(rater, category)].sum() / 256
-                    # )
-                    #
-                    # df_out['{}_{}{}_in_pct_REM_sleep'.format(signal, category, rater)] = pd.Series(
-                    #     (df_out['{}_{}{}_in_seconds'.format(signal, category, rater)]
-                    #      / df_out['rem_sleep_duration_in_s'])
-                    #     * 100
-                    # )
-
                     df_out['{}_{}{}_epochs'.format(signal, category, rater)] = pd.Series(
-                        df[signal + '{}_{}_epochs'.format(rater, category)].sum() / (256 * 30)
+                        df[signal + '{}_{}_epochs'.format(rater, category)].sum() / (RATE * 30)
                     )
 
                 else:
-                    # df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] = pd.Series(
-                    #     df[signal + '{}_{}'.format(rater, category)].sum() / 256
-                    # )
-                    #
-                    # df_out['{}_{}{}_in_pct_REM_sleep'.format(signal, category, rater)] = pd.Series(
-                    #     (df_out['{}_{}{}_in_seconds'.format(signal, category, rater)]
-                    #      / df_out['rem_sleep_duration_in_s'])
-                    #     * 100
-                    # )
 
                     df_out['{}_{}{}_epochs'.format(signal, category, rater)] = pd.Series(
-                        df[signal + '{}_{}_miniepochs'.format(rater, category)].sum() / (256 * 3)
+                        df[signal + '{}_{}_miniepochs'.format(rater, category)].sum() / (RATE * 3)
                     )
-
-                    # df_out['{}_{}{}_in_epoch_seconds_in_pct_REM_sleep'.format(signal, category, rater)] = pd.Series(
-                    #     ((df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] * 3)
-                    #         / df_out['rem_sleep_duration_in_s'])
-                    #     * 100
-                    # )
     return df_out
-
-
 
 
 if __name__ == "__main__":
