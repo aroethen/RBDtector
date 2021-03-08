@@ -26,9 +26,9 @@ if __name__ == "__main__":
         for child in dirlist:
             abs_child = os.path.join(path, child)
             if os.path.isdir(abs_child):
-                if 'comparison_pickle' not in os.listdir(abs_child):
-                    data = PSGData(abs_child, abs_child)
-                    data.generate_output()
+                # if 'comparison_pickle' not in os.listdir(abs_child):
+                data = PSGData(abs_child, abs_child)
+                data.generate_output()
 
     else:
         gui.start_gui()
