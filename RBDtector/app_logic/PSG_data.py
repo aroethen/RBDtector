@@ -22,21 +22,22 @@ SPLINES = True
 RATE = 256
 FREQ = '3.90625ms'
 FLOW = True
-HUMAN_ARTIFACTS = False
+HUMAN_ARTIFACTS = True
 
 COUNT_BASED_ACTIVITY = False
 
 MIN_SUSTAINED = 0.1
 MAX_GAP_SIZE = 0.25
 
-CHUNK_SIZE = '10ms'
-WITH_OFFSET = False
-OFFSET_SIZE = '25ms'
+CHUNK_SIZE = '30L'
+WITH_OFFSET = True
+OFFSET_SIZE = '15L'
 
 LOW_PASS = 12
 
 DEV = False
-VERBOSE = False
+VERBOSE = True
+SHOW_PLOT = False
 
 BASELINE_NAME = {
     'EMG': 'EMG REM baseline',
@@ -98,12 +99,12 @@ class PSGData:
             self._read_data()
             self._calculated_data = self._process_data()
 
-            # pickle for further DEV use
+            # pickle for further DEV and stats_script use
             self._calculated_data.to_pickle(os.path.join(self.output_path, 'pickledDF'))
 
         if DEV:
-
             self._calculated_data = pd.read_pickle(os.path.join(self.output_path, 'pickledDF'))
+        if SHOW_PLOT:
             self.dev_plots(self._calculated_data)
 
         csv_writer.write_output(self._output_path,
@@ -225,17 +226,17 @@ class PSGData:
             df = self.find_any_activity_and_miniepochs(df, signal_type)
             logging.debug(signal_type + ' end')
 
-        if VERBOSE:
-            self.dev_plots(df)
+        # if VERBOSE:
+        #     self.dev_plots(df)
 
         return df
 
     def dev_plots(self, df):
         print(df.info())
         df = df.copy()
-        # df = df.iloc[(df.index.size // 2) + (df.index.size // 6):-(df.index.size // 6)]  # -(df.index.size//6)
+        df = df.iloc[(df.index.size // 2) + (df.index.size // 6):-(df.index.size // 6)]  # -(df.index.size//6)
         signal_type = 'PLM r'
-        df = df.loc[df[signal_type + '_phasic_miniepochs']]
+        # df = df.loc[df[signal_type + '_phasic_miniepochs']]
         # plt.fill_between(df.index.values,
         #                  df[signal_type + '_human_phasic'] * (-1000),
         #                  df[signal_type + '_human_phasic'] * 1000,
@@ -272,9 +273,9 @@ class PSGData:
         # ax.fill_between(df.index.values, (df[signal_type + '_tonic']) * (-25),
         #                 (df[signal_type + '_tonic']) * 25, alpha=0.9, facecolor='gold',
         #                 label="Tonic epoch", zorder=4)
-        # ax.fill_between(df.index.values, (df[signal_type + '_phasic_miniepochs']) * (-75),
-        #                 (df[signal_type + '_phasic_miniepochs']) * 75, alpha=0.7, facecolor='yellow',
-        #                 label="Phasic activity", zorder=4)
+        ax.fill_between(df.index.values, (df[signal_type + '_phasic_miniepochs']) * (-75),
+                        (df[signal_type + '_phasic_miniepochs']) * 75, alpha=0.7, facecolor='yellow',
+                        label="Phasic activity", zorder=4)
         # ax.plot(df[signal_type + '_phasic_miniepochs'] * 75, alpha=0.7, c='deeppink',
         #         label="Phasic activity miniepoch", zorder=4)
         # HUMAN RATING OF CHIN EMG
@@ -287,6 +288,9 @@ class PSGData:
         ax.fill_between(df.index.values, df[signal_type + '_human_phasic'] * (-1000),
                         df[signal_type + '_human_phasic'] * 1000,
                         facecolor='royalblue', label=signal_type + "_human_phasic", alpha=0.7)
+        ax.fill_between(df.index.values, df[signal_type + '_increased_activity'] * (-5),
+                       df[signal_type + '_increased_activity'] * 5,
+                       facecolor='lightblue', label=signal_type + "_increased_activity", alpha=0.7, zorder=7)
         # ax.fill_between(df.index.values, df[signal_type + '_human_artefact']*(-1000), df[signal_type + '_human_artefact']*1000,
         #                  facecolor='maroon', label=signal_type + "_human_artefact")
         # ax.fill_between(df.index.values, df['miniepoch_contains_artefact'] * (-75),
@@ -503,7 +507,8 @@ class PSGData:
                 .resample(CHUNK_SIZE) \
                 .mean() \
                 .apply(np.sqrt)
-            df[signal_type + '_increased_activity'] = increased_in_point05s
+
+            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(FREQ).ffill()
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].ffill()
             df[signal_type + '_increased_activity'] = \
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])

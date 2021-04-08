@@ -58,6 +58,7 @@ EVENT_TYPE = {
 SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
 
 
+# def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
 def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
 
     human_rated_dirs = find_all_human_rated_directories(dirname)
@@ -84,18 +85,67 @@ def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Codi
         # generate dataframe with REM sleep, artifacts and labels per rater
         evaluation_df = generate_evaluation_dataframe(annotation_data, rbdtector_data, all_raters)
         h1_vs_h2_df = fill_in_comparison_data(h1_vs_h2_df, evaluation_df, dirtuple[0], h1_vs_h2_raters)
-        h1_vs_h2_df.to_excel(dirname + '/human_rater_comparison.xlsx')
+        # h1_vs_h2_df.to_excel(dirname + '/human_rater_comparison.xlsx')
 
         rbdtector_vs_h1 = fill_in_comparison_data(rbdtector_vs_h1, evaluation_df, dirtuple[0], rbdtector_vs_h1_raters)
         rbdtector_vs_h2 = fill_in_comparison_data(rbdtector_vs_h2, evaluation_df, dirtuple[0], rbdtector_vs_h2_raters)
 
 
     print(evaluation_df)
+    h1_vs_h2_df = add_summary_column(h1_vs_h2_df, h1_vs_h2_raters)
+    rbdtector_vs_h1 = add_summary_column(rbdtector_vs_h1, rbdtector_vs_h1_raters)
+    rbdtector_vs_h2 = add_summary_column(rbdtector_vs_h2, rbdtector_vs_h2_raters)
+
     # output_filename = os.path.join('output_tables', '{}_human_scoring_table'.format(os.path.basename(dirname)))
     #
     h1_vs_h2_df.to_excel(dirname + '/human_rater_comparison.xlsx')
     rbdtector_vs_h1.to_excel(dirname + '/rbdtector_vs_h1_comparison.xlsx')
     rbdtector_vs_h2.to_excel(dirname + '/rbdtector_vs_h2_comparison.xlsx')
+
+
+def add_summary_column(output_df, raters):
+
+    signals = SIGNALS_TO_EVALUATE.copy()
+    categories = ('tonic', 'phasic', 'any')
+    subject = 'Summary'
+
+    idx = pd.IndexSlice
+    output_df.loc[idx[:, :, 'Subject'], subject] = subject
+    output_df.loc[idx[:, :, :], subject] = output_df.loc[idx[:, :, :], :].sum(axis=1)
+
+    output_df.loc[idx[:, :, 'Subject'], subject] = subject
+
+    for signal in signals:
+        for category in categories:
+
+            output_df.loc[(signal, category, raters[0] + ' % pos'), subject] = \
+                (output_df.loc[(signal, category, raters[0] + ' abs pos'), subject] * 100) \
+                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject]
+
+            output_df.loc[(signal, category, raters[1] + ' % pos'), subject] = \
+                (output_df.loc[(signal, category, raters[1] + ' abs pos'), subject] * 100) \
+                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject]
+
+            r1_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject] \
+                         - output_df.loc[(signal, category, raters[0] + ' abs pos'), subject]
+            r2_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject] \
+                         - output_df.loc[(signal, category, raters[1] + ' abs pos'), subject]
+            p_0 = (output_df.loc[(signal, category, 'shared pos'), subject]
+                   + output_df.loc[(signal, category, 'shared neg'), subject]) \
+                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject]
+
+            p_c = (
+                          (output_df.loc[(signal, category, raters[0] + ' abs pos'), subject]
+                           * output_df.loc[(signal, category, raters[1] + ' abs pos'), subject]
+                           ) + (r1_abs_neg * r2_abs_neg)
+                  ) \
+                / (output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject] ** 2)
+
+            output_df.loc[(signal, category, 'Cohen\'s Kappa'), subject] = (p_0 - p_c) / (1 - p_c)
+
+
+
+    return output_df
 
 
 def fill_in_comparison_data(output_df, evaluation_df, subject, raters):

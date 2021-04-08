@@ -30,6 +30,9 @@ if __name__ == "__main__":
                 data = PSGData(abs_child, abs_child)
                 data.generate_output()
 
+        # data = PSGData('/home/annika/WORK/RBDtector/Profiling_test/EMG_Test_01', '/home/annika/WORK/RBDtector/Profiling_test/EMG_Test_01')
+        # data.generate_output()
+
     else:
         gui.start_gui()
     # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code
