@@ -80,23 +80,23 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
         logging.exception()
         raise
 
-    logging.debug('Absolute input directory: ' + abs_dir)
+    logging.info('Absolute input directory: ' + abs_dir)
 
     for file_type, file_identifier in FILE_FINDER.items():
         tmp_files = glob.glob(os.path.join(abs_dir, file_identifier))
         if len(tmp_files) == 1:
             if file_type == 'human_rating':
                 files[file_type] = tmp_files
-                logging.debug('{}: {}'.format(file_type, files[file_type]))
+                logging.info('{}: {}'.format(file_type, files[file_type]))
             else:
                 files[file_type] = tmp_files[0]
-                logging.debug('{}: {}'.format(file_type, files[file_type]))
+                logging.info('{}: {}'.format(file_type, files[file_type]))
 
         elif len(tmp_files) > 1:
             if file_type == 'human_rating':
                 tmp_files.sort()
                 files[file_type] = tmp_files
-                logging.debug('{}: {}'.format(file_type, files[file_type]))
+                logging.info('{}: {}'.format(file_type, files[file_type]))
             else:
                 raise ErrorForDisplay(
                     'Too many files of type {} in input directory ({})'.format(file_identifier, abs_dir)

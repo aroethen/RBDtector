@@ -19,7 +19,7 @@ import cProfile
 SPLINES = True
 RATE = 256
 FREQ = '3.90625ms'
-FLOW = True
+FLOW = False
 
 FILE_FINDER = {
     'edf': '.edf',
@@ -59,7 +59,8 @@ SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
-def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
+# def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
+def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artefact_menge'):
 
     human_rated_dirs = find_all_human_rated_directories(dirname)
     s1 = pd.Series(name=('General', '', 'Subject'))

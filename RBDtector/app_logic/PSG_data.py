@@ -16,13 +16,14 @@ from scipy import interpolate, signal
 
 # dev dependencies
 import matplotlib.pyplot as plt
+import datetime
 
 # DEFINITIONS
 SPLINES = True
 RATE = 256
 FREQ = '3.90625ms'
-FLOW = True
-HUMAN_ARTIFACTS = True
+FLOW = False
+HUMAN_ARTIFACTS = False
 
 COUNT_BASED_ACTIVITY = False
 
@@ -74,6 +75,26 @@ class PSGData:
         self._raw_data: RawData                  # content of edf file
         self._annotation_data: AnnotationData    # content of txt files
         self._calculated_data: pd.DataFrame = pd.DataFrame()
+        logging.info('Definitions:\n'
+                     f'SPLINES = {SPLINES}\n'
+                     f'RATE = {RATE}\n'
+                     f'FREQ = {FREQ}\n'
+                     f'FLOW = {FLOW}\n'
+                     f'HUMAN_ARTIFACTS = {HUMAN_ARTIFACTS}\n'
+                     f'COUNT_BASED_ACTIVITY = {COUNT_BASED_ACTIVITY}\n'
+                     f'MIN_SUSTAINED = {MIN_SUSTAINED}\n'
+                     f'MAX_GAP_SIZE = {MAX_GAP_SIZE}\n'
+                     f'CHUNK_SIZE = {CHUNK_SIZE}\n'
+                     f'WITH_OFFSET = {WITH_OFFSET}\n'
+                     f'OFFSET_SIZE = {OFFSET_SIZE}\n'
+                     f'LOW_PASS = {LOW_PASS}\n'
+                     f'DEV = {DEV}\n'
+                     f'VERBOSE = {VERBOSE}\n'
+                     f'SHOW_PLOT = {SHOW_PLOT}\n'
+                     f'BASELINE_NAME = {BASELINE_NAME}\n'
+                     f'HUMAN_RATING_LABEL = {HUMAN_RATING_LABEL}\n'
+                     f'EVENT_TYPE = {EVENT_TYPE}\n'
+                     f'SIGNALS_TO_EVALUATE = {SIGNALS_TO_EVALUATE}')
         logging.debug('New PSGData Object created')
 
 # PUBLIC FUNCTIONS
@@ -100,10 +121,13 @@ class PSGData:
             self._calculated_data = self._process_data()
 
             # pickle for further DEV and stats_script use
-            self._calculated_data.to_pickle(os.path.join(self.output_path, 'pickledDF'))
-
+            pickle_path = os.path.join(self.output_path, 'pickledDF')
+            self._calculated_data.to_pickle(pickle_path)
+            logging.info(f'Pickled dataframe stored at {pickle_path}')
         if DEV:
-            self._calculated_data = pd.read_pickle(os.path.join(self.output_path, 'pickledDF'))
+            pickle_path = os.path.join(self._input_path, 'pickledDF')
+            self._calculated_data = pd.read_pickle(pickle_path)
+            logging.info(f'Used pickled calculation dataframe from {pickle_path}')
         if SHOW_PLOT:
             self.dev_plots(self._calculated_data)
 
@@ -234,7 +258,15 @@ class PSGData:
     def dev_plots(self, df):
         print(df.info())
         df = df.copy()
-        df = df.iloc[(df.index.size // 2) + (df.index.size // 6):-(df.index.size // 6)]  # -(df.index.size//6)
+        start_date = df.index[0].date()
+        end_date = df.index[-1].date()
+
+        # df = df.iloc[(df.index.size // 2) + (df.index.size // 6):-(df.index.size // 6)]  # -(df.index.size//6)
+        df = df.between_time(
+            # start_time=datetime.datetime.combine(start_date, datetime.time(22, 00)),
+            start_time=datetime.datetime.time(22, 00),
+            # end_time=datetime.datetime.combine(start_date, datetime.time(23, 00)))
+            end_time=datetime.datetime.time(23, 00))
         signal_type = 'PLM r'
         # df = df.loc[df[signal_type + '_phasic_miniepochs']]
         # plt.fill_between(df.index.values,

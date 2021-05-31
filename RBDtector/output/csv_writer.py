@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
 import os
-from typing import Tuple, Dict, List
 import csv
-
 from datetime import datetime
+
+from typing import Tuple, Dict, List
+import logging
+
 
 HUMAN_RATING_LABEL = {
     'EMG': 'Chin',
@@ -21,6 +23,7 @@ EVENT_TYPE = {
     'artefact': 'Artifact'
 }
 
+
 def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] = None,
                  calculated_data: pd.DataFrame = None,
                  signal_names: List[str] = None):
@@ -32,6 +35,7 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
     :param calculated_data: Dataframe of calculated annotations
     :param human_rating: Dataframe of human rater annotations
     """
+    logging.info(f'Writing output to {output_path}')
     # if human_rating:
     #     df = human_rating[1]
     #     onset = pd.to_datetime(df['event_onset'], unit='ms').dt.time
