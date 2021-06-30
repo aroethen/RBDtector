@@ -21,8 +21,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-    #     path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
-        path =  '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artefact_menge'
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
+        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artefact_menge'
         dirlist = os.listdir(path)
         for child in dirlist:
             abs_child = os.path.join(path, child)
@@ -37,5 +37,5 @@ if __name__ == "__main__":
         # data.generate_output()
 
     else:
-        gui.start_gui()
+        gui.gui.start_gui()
     # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code

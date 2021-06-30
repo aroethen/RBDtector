@@ -12,60 +12,17 @@ import logging
 # dependencies
 import numpy as np
 import pandas as pd
-from scipy import interpolate, signal
+from scipy import interpolate
 
 # dev dependencies
 import matplotlib.pyplot as plt
-import datetime
+from datetime import datetime
 
 # DEFINITIONS
-SPLINES = True
-RATE = 256
-FREQ = '3.90625ms'
-FLOW = False
-HUMAN_ARTIFACTS = False
+from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL
+from util.settings import Settings
 
-COUNT_BASED_ACTIVITY = False
-
-MIN_SUSTAINED = 0.1
-MAX_GAP_SIZE = 0.25
-
-CHUNK_SIZE = '30L'
-WITH_OFFSET = True
-OFFSET_SIZE = '15L'
-
-LOW_PASS = 12
-
-DEV = False
-VERBOSE = True
-SHOW_PLOT = False
-
-BASELINE_NAME = {
-    'EMG': 'EMG REM baseline',
-    'PLM l': 'PLMl REM baseline',
-    'PLM r': 'PLMr REM baseline',
-    'AUX': 'AUX REM baseline',
-    'Akti.': 'AKTI REM baseline'
-}
-
-HUMAN_RATING_LABEL = {
-    'EMG': 'Chin',
-    'PLM l': 'LeftLeg',
-    'PLM r': 'RightLeg',
-    'AUX': 'RightArm',
-    'Akti.': 'LeftArm'
-}
-
-EVENT_TYPE = {
-    'tonic': 'Tonic',
-    'intermediate': 'Any',
-    'phasic': 'Phasic',
-    'artefact': 'Artifact'
-}
-
-SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
-
-
+""" PSGData """
 class PSGData:
 
     def __init__(self, input_path: str = '', output_path: str = ''):
@@ -76,25 +33,11 @@ class PSGData:
         self._annotation_data: AnnotationData    # content of txt files
         self._calculated_data: pd.DataFrame = pd.DataFrame()
         logging.info('Definitions:\n'
-                     f'SPLINES = {SPLINES}\n'
-                     f'RATE = {RATE}\n'
-                     f'FREQ = {FREQ}\n'
-                     f'FLOW = {FLOW}\n'
-                     f'HUMAN_ARTIFACTS = {HUMAN_ARTIFACTS}\n'
-                     f'COUNT_BASED_ACTIVITY = {COUNT_BASED_ACTIVITY}\n'
-                     f'MIN_SUSTAINED = {MIN_SUSTAINED}\n'
-                     f'MAX_GAP_SIZE = {MAX_GAP_SIZE}\n'
-                     f'CHUNK_SIZE = {CHUNK_SIZE}\n'
-                     f'WITH_OFFSET = {WITH_OFFSET}\n'
-                     f'OFFSET_SIZE = {OFFSET_SIZE}\n'
-                     f'LOW_PASS = {LOW_PASS}\n'
-                     f'DEV = {DEV}\n'
-                     f'VERBOSE = {VERBOSE}\n'
-                     f'SHOW_PLOT = {SHOW_PLOT}\n'
-                     f'BASELINE_NAME = {BASELINE_NAME}\n'
-                     f'HUMAN_RATING_LABEL = {HUMAN_RATING_LABEL}\n'
-                     f'EVENT_TYPE = {EVENT_TYPE}\n'
-                     f'SIGNALS_TO_EVALUATE = {SIGNALS_TO_EVALUATE}')
+                     f'BASELINE_NAME = {str(BASELINE_NAME)}\n'
+                     f'HUMAN_RATING_LABEL = {str(HUMAN_RATING_LABEL)}\n'
+                     f'EVENT_TYPE = {str(EVENT_TYPE)}\n'
+                     f'{str(Settings.to_string())}'
+                     )
         logging.debug('New PSGData Object created')
 
 # PUBLIC FUNCTIONS
@@ -115,7 +58,7 @@ class PSGData:
         self._output_path = output_path
 
     def generate_output(self):
-        if not DEV:
+        if not Settings.DEV:
             logging.debug('PSGData starting to generate output')
             self._read_data()
             self._calculated_data = self._process_data()
@@ -124,28 +67,28 @@ class PSGData:
             pickle_path = os.path.join(self.output_path, 'pickledDF')
             self._calculated_data.to_pickle(pickle_path)
             logging.info(f'Pickled dataframe stored at {pickle_path}')
-        if DEV:
+        if Settings.DEV:
             pickle_path = os.path.join(self._input_path, 'pickledDF')
             self._calculated_data = pd.read_pickle(pickle_path)
             logging.info(f'Used pickled calculation dataframe from {pickle_path}')
-        if SHOW_PLOT:
+        if Settings.SHOW_PLOT:
             self.dev_plots(self._calculated_data)
 
         csv_writer.write_output(self._output_path,
                                 calculated_data=self._calculated_data,
-                                signal_names=SIGNALS_TO_EVALUATE)
+                                signal_names=Settings.SIGNALS_TO_EVALUATE)
 
 # PRIVATE FUNCTIONS
     def _read_data(self):
         logging.debug('PSGData starting to read input')
-        data = ir.read_input(self._input_path, SIGNALS_TO_EVALUATE)
+        data = ir.read_input(self._input_path, Settings.SIGNALS_TO_EVALUATE)
         self._raw_data = data[0]
         self._annotation_data = data[1]
 
     def _process_data(self) -> pd.DataFrame:
 
         start_datetime = self._raw_data.get_header()['startdate']
-        signal_names = SIGNALS_TO_EVALUATE.copy()
+        signal_names = Settings.SIGNALS_TO_EVALUATE.copy()
 
         # prepare DataFrame with DatetimeIndex
         idx = self._create_datetime_index(start_datetime)
@@ -224,11 +167,11 @@ class PSGData:
 
             df[signal_type + '_two_times_baseline_and_valid'] = \
                 df[signal_type + '_isGE2xBaseline'] & df['artefact_free_rem_sleep_miniepoch']
-            if HUMAN_ARTIFACTS:
+            if Settings.HUMAN_ARTIFACTS:
                 df[signal_type + '_two_times_baseline_and_valid'] = \
                     df[signal_type + '_two_times_baseline_and_valid'] & ~df[signal_type + '_human_artefact']
 
-            df = self.find_increased_activity(df, signal_type, COUNT_BASED_ACTIVITY)
+            df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
 
             # find increased sustained activity
             df = self.find_increased_sustained_activity(df, signal_type)
@@ -241,7 +184,7 @@ class PSGData:
                 df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
                 df[signal_type + '_two_times_baseline_and_valid'] = \
                     df[signal_type + '_isGE2xBaseline'] & df['artefact_free_rem_sleep_miniepoch']
-                df = self.find_increased_activity(df, signal_type, COUNT_BASED_ACTIVITY)
+                df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
                 df = self.find_increased_sustained_activity(df, signal_type)
 
             # find phasic activity and miniepochs
@@ -261,13 +204,13 @@ class PSGData:
         start_date = df.index[0].date()
         end_date = df.index[-1].date()
 
-        # df = df.iloc[(df.index.size // 2) + (df.index.size // 6):-(df.index.size // 6)]  # -(df.index.size//6)
-        df = df.between_time(
-            # start_time=datetime.datetime.combine(start_date, datetime.time(22, 00)),
-            start_time=datetime.datetime.time(22, 00),
-            # end_time=datetime.datetime.combine(start_date, datetime.time(23, 00)))
-            end_time=datetime.datetime.time(23, 00))
-        signal_type = 'PLM r'
+        df = df.iloc[(df.index.size // 2) + (df.index.size // 7):-((df.index.size // 5)+(df.index.size // 9))]  # -(df.index.size//6)
+        # df = df.between_time(
+        #     # start_time=datetime.datetime.combine(start_date, datetime.time(22, 00)),
+        #     start_time=pd.to_datetime('22:00').time(),
+        #     # end_time=datetime.datetime.combine(start_date, datetime.time(23, 00)))
+        #     end_time=pd.to_datetime('23:00').time())
+        signal_type = 'Akti.'
         # df = df.loc[df[signal_type + '_phasic_miniepochs']]
         # plt.fill_between(df.index.values,
         #                  df[signal_type + '_human_phasic'] * (-1000),
@@ -279,8 +222,12 @@ class PSGData:
         # plt.plot(df.index.values, df[signal_type + '_old'], c='teal', label=signal_type, alpha=0.7, zorder=4)
         fig, ax = plt.subplots()
         # REM PHASES
-        # ax.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
-        #                  facecolor='gainsboro', label="is_REM", alpha=0.7)
+        ax.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
+                         facecolor='lightblue', label="is_REM", alpha=0.7)
+
+        ax.fill_between(df.index.values, df['is_artefact'] * (-550),
+                        df['is_artefact'] * 550,
+                        facecolor='lightpink', label="Arousal", alpha=0.7)
         ax.fill_between(df.index.values, df['artefact_free_rem_sleep_miniepoch'] * (-750),
                         df['artefact_free_rem_sleep_miniepoch'] * 750,
                         facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
@@ -305,9 +252,11 @@ class PSGData:
         # ax.fill_between(df.index.values, (df[signal_type + '_tonic']) * (-25),
         #                 (df[signal_type + '_tonic']) * 25, alpha=0.9, facecolor='gold',
         #                 label="Tonic epoch", zorder=4)
-        ax.fill_between(df.index.values, (df[signal_type + '_phasic_miniepochs']) * (-75),
-                        (df[signal_type + '_phasic_miniepochs']) * 75, alpha=0.7, facecolor='yellow',
-                        label="Phasic activity", zorder=4)
+
+        # ax.fill_between(df.index.values, (df[signal_type + '_phasic_miniepochs']) * (-75),
+        #                 (df[signal_type + '_phasic_miniepochs']) * 75, alpha=0.7, facecolor='yellow',
+        #                 label="Phasic activity", zorder=4)
+
         # ax.plot(df[signal_type + '_phasic_miniepochs'] * 75, alpha=0.7, c='deeppink',
         #         label="Phasic activity miniepoch", zorder=4)
         # HUMAN RATING OF CHIN EMG
@@ -317,14 +266,14 @@ class PSGData:
         # ax.fill_between(df.index.values, df[signal_type + '_human_intermediate'] * (-1000),
         #                 df[signal_type + '_human_intermediate'] * 1000,
         #                 facecolor='deepskyblue', label=signal_type + "_human_intermediate")
-        ax.fill_between(df.index.values, df[signal_type + '_human_phasic'] * (-1000),
-                        df[signal_type + '_human_phasic'] * 1000,
-                        facecolor='royalblue', label=signal_type + "_human_phasic", alpha=0.7)
+        # ax.fill_between(df.index.values, df[signal_type + '_human_phasic'] * (-1000),
+        #                 df[signal_type + '_human_phasic'] * 1000,
+        #                 facecolor='royalblue', label=signal_type + "_human_phasic", alpha=0.7)
         ax.fill_between(df.index.values, df[signal_type + '_increased_activity'] * (-5),
                        df[signal_type + '_increased_activity'] * 5,
                        facecolor='lightblue', label=signal_type + "_increased_activity", alpha=0.7, zorder=7)
-        # ax.fill_between(df.index.values, df[signal_type + '_human_artefact']*(-1000), df[signal_type + '_human_artefact']*1000,
-        #                  facecolor='maroon', label=signal_type + "_human_artefact")
+        ax.fill_between(df.index.values, df[signal_type + '_human_artefact']*(-1000), df[signal_type + '_human_artefact']*1000,
+                         facecolor='maroon', label=signal_type + "_human_artefact", zorder=10)
         # ax.fill_between(df.index.values, df['miniepoch_contains_artefact'] * (-75),
         #                  df['miniepoch_contains_artefact'] * 75,
         #                  facecolor='#993404', label="miniepoch_contains_artefact", alpha=0.7, zorder=4)
@@ -387,7 +336,7 @@ class PSGData:
         continuous_phasic_sustained_activity = df[signal_type + '_sustained_activity'] \
             .groupby([df[signal_type + '_sustained_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .le(RATE * 5)
+            .le(Settings.RATE * 5)
         df[signal_type + '_phasic'] = continuous_phasic_sustained_activity & df[signal_type + '_sustained_activity']
 
         # find phasic miniepochs
@@ -414,7 +363,7 @@ class PSGData:
         tonic_in_30s = sustained_signal \
             .resample('30s') \
             .sum() \
-            .gt((RATE * 30) / 2)
+            .gt((Settings.RATE * 30) / 2)
         df[signal_type + '_tonic'] = tonic_in_30s
         df[signal_type + '_tonic'] = df[signal_type + '_tonic'].ffill()
         activity_at_tonic_interval = df[signal_type + '_tonic'] & df[signal_type + '_sustained_activity']
@@ -438,14 +387,14 @@ class PSGData:
         continuous_vals_gt_min_start = df[signal_type + '_increased_activity'] \
             .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .gt(RATE * MIN_SUSTAINED)
+            .gt(Settings.RATE * Settings.MIN_SUSTAINED)
         min_sustained_activity = \
             continuous_vals_gt_min_start & df[signal_type + '_increased_activity']
 
         continuous_vals_gt_min_end = df[signal_type + '_increased_activity'] \
             .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .lt(RATE * MAX_GAP_SIZE)
+            .lt(Settings.RATE * Settings.MAX_GAP_SIZE)
         max_tolerable_gaps = \
             continuous_vals_gt_min_end & ~df[signal_type + '_increased_activity']
 
@@ -513,19 +462,19 @@ class PSGData:
         if count_based_activity:
             series_to_resample = df[signal_type + '_two_times_baseline_and_valid'].astype(int)
             increased_in_point05s = series_to_resample \
-                .resample(CHUNK_SIZE) \
+                .resample(Settings.CHUNK_SIZE) \
                 .sum() \
                 .apply(lambda x: x > 3)
-            increased_in_point05s = increased_in_point05s.resample(FREQ).ffill()
+            increased_in_point05s = increased_in_point05s.resample(Settings.FREQ).ffill()
             df[signal_type + '_increased_activity'] = increased_in_point05s
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity']
 
-            if WITH_OFFSET:
+            if Settings.WITH_OFFSET:
                 increased_in_point05s_with_offset = series_to_resample \
-                    .resample(CHUNK_SIZE, offset=OFFSET_SIZE) \
+                    .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
                     .sum() \
                     .apply(lambda x: x > 3)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(FREQ).ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(Settings.FREQ).ffill()
                 df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
                 df[signal_type + '_increased_activity'] = np.logical_or(
                     df[signal_type + '_increased_activity'],
@@ -536,23 +485,23 @@ class PSGData:
             valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
             valid_signal = valid_signal.pow(2)
             increased_in_point05s = valid_signal \
-                .resample(CHUNK_SIZE) \
+                .resample(Settings.CHUNK_SIZE) \
                 .mean() \
                 .apply(np.sqrt)
 
-            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(FREQ).ffill()
+            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(Settings.FREQ).ffill()
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].ffill()
             df[signal_type + '_increased_activity'] = \
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
 
-            if WITH_OFFSET:
+            if Settings.WITH_OFFSET:
                 valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
                 valid_signal = valid_signal.pow(2)
                 increased_in_point05s_with_offset = valid_signal \
-                    .resample(CHUNK_SIZE, offset=OFFSET_SIZE) \
+                    .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
                     .mean() \
                     .apply(np.sqrt)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(FREQ).ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(Settings.FREQ).ffill()
                 increased_activity_with_offset = pd.Series(increased_in_point05s_with_offset, index=df.index)
                 increased_activity_with_offset = \
                     increased_activity_with_offset > (2 * df[signal_type + '_baseline'])
@@ -619,14 +568,14 @@ class PSGData:
         for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
             df.loc[on:off, ['artefact_event']] = True
 
-        if FLOW:
+        if Settings.FLOW:
             flow_events = self._annotation_data.flow_events[1]
             df['flow_event'] = pd.Series(False, index=df.index)
             for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
                 df.loc[on:off, ['flow_event']] = True
 
         # add conditional column 'is_artefact'
-        if FLOW:
+        if Settings.FLOW:
             df['is_artefact'] = np.logical_or(df['artefact_event'], df['flow_event'])
         else:
             df['is_artefact'] = df['artefact_event']
@@ -645,26 +594,26 @@ class PSGData:
 
         # resample sleep profile from 2Hz(30s intervals) to 256 Hz, fill all entries with the correct sleeping phase
         # and add it as column to dataframe
-        resampled_sleep_profile = sleep_profile.resample(str(1000 / RATE) + 'ms').ffill()
+        resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
         df['is_REM'] = df['sleep_phase'] == "REM"
         return df
 
     def _create_datetime_index(self, start_datetime):
-        freq_in_ms = 1000 / RATE
+        freq_in_ms = 1000 / Settings.RATE
         emg_channel = self._raw_data.get_data_channels()['EMG']
         sample_rate = emg_channel.get_sample_rate()
         sample_length = len(emg_channel.get_signal())
-        index_length = (sample_length / sample_rate) * RATE
+        index_length = (sample_length / sample_rate) * Settings.RATE
         return pd.date_range(start_datetime, freq=str(freq_in_ms) + 'ms', periods=index_length)
 
     def _signal_to_256hz_datetimeindexed_series(self, signal_array, signal_type, start_datetime):
         sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
         duration_in_seconds = len(signal_array) / float(sample_rate)
         old_sample_points = np.arange(len(signal_array))
-        new_sample_points = np.arange(len(signal_array), step=(sample_rate / RATE), dtype=np.double)
+        new_sample_points = np.arange(len(signal_array), step=(sample_rate / Settings.RATE), dtype=np.double)
 
-        if SPLINES:
+        if Settings.SPLINES:
             tck = interpolate.splrep(old_sample_points, signal_array)
             resampled_signal_array = interpolate.splev(new_sample_points, tck)
         else:
@@ -677,7 +626,7 @@ class PSGData:
         # tidx = pd.date_range(start_datetime, freq='3.90625ms', periods=len(old_sample_points))
         # ^ NUR WENN OLD_POINTS mit Sample-Rate 256 aufgenommen wurden
 
-        freq_in_ms = 1000/RATE
+        freq_in_ms = 1000 / Settings.RATE
 
         idx = pd.date_range(start_datetime, freq=str(freq_in_ms)+'ms', periods=len(new_sample_points))
         resampled_signal_dtseries = pd.Series(resampled_signal_array, index=idx, name=signal_type)

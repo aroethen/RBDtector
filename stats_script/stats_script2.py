@@ -1,61 +1,16 @@
 import pandas as pd
-import matplotlib as plt
 import numpy as np
-from scipy import interpolate
 
 from typing import List, Tuple
 import os
-import re
 import logging
-import datetime
-
-import multiprocessing as mp
+from datetime import datetime
 
 from RBDtector.input_handling import input_reader
-from RBDtector.data_structures import *
 
-import cProfile
-
-SPLINES = True
-RATE = 256
-FREQ = '3.90625ms'
-FLOW = False
-
-FILE_FINDER = {
-    'edf': '.edf',
-    'sleep_profile': 'Sleep profile',
-    'flow_events': 'Flow Events',
-    'arousals': 'Classification Arousals',
-    'baseline': 'Start-Baseline',
-    'human_rating': 'Generic',
-    'human_rating_2': 'Generic_NO'
-}
-
-QUALITIES = [
-    'LeftArmPhasic', 'LeftArmTonic', 'LeftArmAny',
-    'RightArmPhasic', 'RightArmTonic', 'RightArmAny',
-    'LeftLegPhasic', 'LeftLegTonic', 'LeftLegAny',
-    'RightLegPhasic', 'RightLegTonic', 'RightLegAny',
-    'ChinPhasic', 'ChinTonic', 'ChinAny',
-    'LeftArmArtifact', 'RightArmArtifact', 'LeftLegArtifact', 'RightLegArtifact', 'ChinArtifact'
-]
-
-HUMAN_RATING_LABEL = {
-    'EMG': 'Chin',
-    'PLM l': 'LeftLeg',
-    'PLM r': 'RightLeg',
-    'AUX': 'RightArm',
-    'Akti.': 'LeftArm'
-}
-
-EVENT_TYPE = {
-    'tonic': 'Tonic',
-    'intermediate': 'Any',
-    'phasic': 'Phasic',
-    'artefact': 'Artifact'
-}
-
-SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
+from RBDtector.util.stats_definitions import FILE_FINDER, SIGNALS_TO_EVALUATE
+from RBDtector.util.definitions import EVENT_TYPE, HUMAN_RATING_LABEL
+from RBDtector.util.settings import Settings
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
@@ -81,7 +36,22 @@ def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Codi
     for dirtuple in human_rated_dirs:
         # read directory input
         _, annotation_data = input_reader.read_input(dirtuple[1], read_baseline=False, read_edf=False)
-        rbdtector_data = pd.read_pickle(os.path.join(dirtuple[1], 'comparison_pickle'))
+
+        # comparison_pickles = []
+        # comparison_pickles_iterator = os.scandir(dirtuple[1])
+        # for filename in comparison_pickles_iterator:
+        #     if 'comparison_pickle' in filename.name:
+        #         comparison_pickles.append(filename.path)
+        comparison_pickles = [f.path for f in os.scandir(dirtuple[1])
+                              if 'comparison_pickle' in f.name]
+
+        if len(comparison_pickles) == 1:
+            comparison_pickle = comparison_pickles[0]
+        else:
+            print(f"No unambiguous comparison_pickle found in {dirtuple[1]}. No evaluation possible for this directory.")
+            continue
+
+        rbdtector_data = pd.read_pickle(comparison_pickle)
         print(rbdtector_data)
         # generate dataframe with REM sleep, artifacts and labels per rater
         evaluation_df = generate_evaluation_dataframe(annotation_data, rbdtector_data, all_raters)
@@ -92,20 +62,24 @@ def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Codi
         rbdtector_vs_h2 = fill_in_comparison_data(rbdtector_vs_h2, evaluation_df, dirtuple[0], rbdtector_vs_h2_raters)
 
 
-    print(evaluation_df)
+    # print(evaluation_df)
     h1_vs_h2_df = add_summary_column(h1_vs_h2_df, h1_vs_h2_raters)
     rbdtector_vs_h1 = add_summary_column(rbdtector_vs_h1, rbdtector_vs_h1_raters)
     rbdtector_vs_h2 = add_summary_column(rbdtector_vs_h2, rbdtector_vs_h2_raters)
 
-    # output_filename = os.path.join('output_tables', '{}_human_scoring_table'.format(os.path.basename(dirname)))
-    #
-    h1_vs_h2_df.to_excel(dirname + '/human_rater_comparison.xlsx')
-    rbdtector_vs_h1.to_excel(dirname + '/rbdtector_vs_h1_comparison.xlsx')
-    rbdtector_vs_h2.to_excel(dirname + '/rbdtector_vs_h2_comparison.xlsx')
 
+    h1_vs_h2_df.to_excel(dirname + f'/human_rater_comparison_{datetime.now()}.xlsx')
+    rbdtector_vs_h1.to_excel(dirname + f'/rbdtector_vs_h1_comparison_{datetime.now()}.xlsx')
+    rbdtector_vs_h2.to_excel(dirname + f'/rbdtector_vs_h2_comparison_{datetime.now()}.xlsx')
+
+    with open(os.path.join(dirname, f'settings_and_definitions_{datetime.now()}'), 'w') as f:
+        f.write(Settings.to_string())
+        f.write(f'FILE_FINDER: {FILE_FINDER}\n'
+                f'SIGNALS_TO_EVALUATE: {SIGNALS_TO_EVALUATE}'
+                f'EVENT_TYPE: {EVENT_TYPE}'
+                f'HUMAN_RATING_LABEL: {HUMAN_RATING_LABEL}')
 
 def add_summary_column(output_df, raters):
-
     signals = SIGNALS_TO_EVALUATE.copy()
     categories = ('tonic', 'phasic', 'any')
     subject = 'Summary'
@@ -156,7 +130,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
     signals = SIGNALS_TO_EVALUATE.copy()
     categories = ('tonic', 'phasic', 'any')
 
-    artifact_free_rem_miniepochs = evaluation_df['artefact_free_rem_sleep_miniepoch'].sum() / (RATE * 3)
+    artifact_free_rem_miniepochs = evaluation_df['artefact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
 
     idx = pd.IndexSlice
     output_df.loc[idx[:, :, 'Subject'], subject] = subject
@@ -178,7 +152,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
             shared_pos = \
                 (evaluation_df[signal + r1 + '_' + category + miniepochs]
                  & evaluation_df[signal + r2 + '_' + category + miniepochs])\
-                .sum() / (RATE * length)
+                .sum() / (Settings.RATE * length)
             output_df.loc[(signal, category, 'shared pos'), subject] = shared_pos
 
             shared_neg = \
@@ -188,12 +162,12 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
                         & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
                     )
                     & evaluation_df['artefact_free_rem_sleep_miniepoch']
-                 ).sum() / (RATE * length)
+                 ).sum() / (Settings.RATE * length)
             output_df.loc[(signal, category, 'shared neg'), subject] = shared_neg
 
             r1_abs_pos = \
                 evaluation_df[signal + r1 + '_' + category + miniepochs]\
-                .sum() / (RATE * length)
+                .sum() / (Settings.RATE * length)
             output_df.loc[(signal, category, raters[0] + ' abs pos'), subject] = r1_abs_pos
 
             output_df.loc[(signal, category, raters[0] + ' % pos'), subject] = \
@@ -203,7 +177,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
 
             r2_abs_pos = \
                 evaluation_df[signal + r2 + '_' + category + miniepochs]\
-                .sum() / (RATE * length)
+                .sum() / (Settings.RATE * length)
             output_df.loc[(signal, category, raters[1] + ' abs pos'), subject] = r2_abs_pos
 
             output_df.loc[(signal, category, raters[1] + ' % pos'), subject] = \
@@ -398,14 +372,14 @@ def add_artefacts_to_df(df, annotation_data):
     for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
         df.loc[on:off, ['artefact_event']] = True
 
-    if FLOW:
+    if Settings.FLOW:
         flow_events = annotation_data.flow_events[1]
         df['flow_event'] = pd.Series(False, index=df.index)
         for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
             df.loc[on:off, ['flow_event']] = True
 
     # add conditional column 'is_artefact'
-    if FLOW:
+    if Settings.FLOW:
         df['is_artefact'] = np.logical_or(df['artefact_event'], df['flow_event'])
     else:
         df['is_artefact'] = df['artefact_event']
@@ -425,12 +399,12 @@ def generate_sleep_profile_df(annotation_data) -> pd.DataFrame:
 
     # resample sleep profile from 30s intervals to 256 Hz, fill all entries with the correct sleeping phase
     # and add it as column to dataframe
-    resampled_sleep_profile = sleep_profile.resample(FREQ).ffill()
+    resampled_sleep_profile = sleep_profile.resample(Settings.FREQ).ffill()
     # df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
 
-    start_datetime = datetime.datetime.strptime(annotation_data.sleep_profile[0]['Start Time'], '%d.%m.%Y %H:%M:%S')
+    start_datetime = datetime.strptime(annotation_data.sleep_profile[0]['Start Time'], '%d.%m.%Y %H:%M:%S')
     end_datetime = resampled_sleep_profile.index.max()
-    idx = pd.date_range(start_datetime, end_datetime, freq=FREQ)
+    idx = pd.date_range(start_datetime, end_datetime, freq=Settings.FREQ)
     df = pd.DataFrame(index=idx)
     df['is_REM'] = resampled_sleep_profile['sleep_phase'] == "REM"
     return df
@@ -447,7 +421,7 @@ def find_start_date_in_file(sleep_profile):
         for line in text_in_lines:
             split_list = line.split(':')
             if 'Start Time' in split_list[0]:
-                start_date = datetime.datetime.strptime(split_list[1].strip(), '%d.%m.%Y %H').date()
+                start_date = datetime.strptime(split_list[1].strip(), '%d.%m.%Y %H').date()
                 break
 
     return start_date

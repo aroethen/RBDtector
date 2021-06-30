@@ -32,13 +32,14 @@ def read_input(directory_name: str, signals_to_load: List[str] = None, read_base
     """
     Reads input data from files in given directory into (RawData, AnnotationData)
 
-
     :param read_edf:
     :param directory_name: relative or absolute path to input directory
     :param signals_to_load: a list of strings containing all signal names to be loaded from edf file.
                 Passing None results in all signals being loaded. Defaults to None.
     :param read_baseline: boolean value whether to read baseline data from file
+
     :returns: Tuple filled with data from the input files in order: (RawData, AnnotationData)
+
     :raises OSError: if directory_name is not an existing directory
     :raises FileExistsError: if more than one file of a type are found
     :raises FileNotFoundError: if no EDF files are found
@@ -53,7 +54,6 @@ def read_input(directory_name: str, signals_to_load: List[str] = None, read_base
 
     annotation_data: AnnotationData = __read_txt_files(filenames, read_baseline)
     return raw_data, annotation_data
-
 
 
 def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, str]:
