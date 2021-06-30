@@ -4,7 +4,7 @@ class Settings:
     SPLINES = True
     RATE = 256
     FREQ = '3.90625ms'
-    FLOW = False
+    FLOW = True
     HUMAN_ARTIFACTS = True
     COUNT_BASED_ACTIVITY = False
     MIN_SUSTAINED = 0.1
@@ -14,7 +14,7 @@ class Settings:
     OFFSET_SIZE = '15L'
     LOW_PASS = 12
     VERBOSE = True
-    SHOW_PLOT = True
+    SHOW_PLOT = False
     SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
 
     @classmethod
@@ -34,4 +34,4 @@ class Settings:
                 f'SPLINES = {Settings.SPLINES}\n' + \
                 f'VERBOSE = {Settings.VERBOSE}\n' + \
                 f'SHOW_PLOT = {Settings.SHOW_PLOT}\n' + \
-                f'SIGNALS_TO_EVALUATE = {str(Settings.SIGNALS_TO_EVALUATE)}')
+                f'SIGNALS_TO_EVALUATE = {str(Settings.SIGNALS_TO_EVALUATE)}\n')

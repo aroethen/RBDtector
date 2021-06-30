@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Tuple, Dict, List
 import logging
 
-from util.definitions import HUMAN_RATING_LABEL, EVENT_TYPE, BASELINE_NAME
+from util.definitions import HUMAN_RATING_LABEL, EVENT_TYPE, definitions_as_string
 from util.settings import Settings
 
 
@@ -40,7 +40,7 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
         df_out = pd.DataFrame()
         df_out['rater'] = pd.Series('RBDtector')
         df_out['rem_sleep_duration_in_s'] = pd.Series(df['is_REM'].sum() / 256)
-        df_out['artifact_free_rem_sleep_in_s'] = pd.Series(df['artefact_free_rem_sleep_miniepoch'].sum() / 256)
+        df_out['artifact_free_rem_sleep_in_s'] = pd.Series(df['artifact_free_rem_sleep_miniepoch'].sum() / 256)
         matched_human_miniepochs = {}
 
         for signal in signal_names:
@@ -74,10 +74,9 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
 
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
             f.write(f"Date: {datetime.now()}"
-                    f"{Settings.to_string()}\n"
-                    f"HUMAN_RATING_LABEL: {HUMAN_RATING_LABEL}\n"
-                    f"EVENT_TYPE: {EVENT_TYPE}\n"
-                    f"BASELINE_NAME: {BASELINE_NAME}")
+                    f"{Settings.to_string()}"
+                    f"{definitions_as_string()}"
+                    )
 
     except BaseException as e:
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
@@ -102,10 +101,10 @@ def write_exact_events_csv(calculated_data, output_path, signal_names):
                         )
                     )
                 )
-                diff = intermediate_ratings.astype(int).diff()
+                diff = intermediate_ratings.fillna('-99').astype('int').diff()
                 cat = 'intermediate'
             else:
-                diff = calculated_data[signal + '_' + category].astype(int).diff()
+                diff = calculated_data[signal + '_' + category].fillna('-99').astype('int').diff()
 
             start_times = diff[diff == 1].index.array
             end_times = diff[diff == -1].index.array

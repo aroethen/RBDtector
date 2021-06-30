@@ -16,16 +16,7 @@ from data_structures.raw_data import RawData
 from data_structures.raw_data_channel import RawDataChannel
 from data_structures.annotation_data import AnnotationData
 from util.error_for_display import ErrorForDisplay
-
-
-FILE_FINDER = {
-    'edf': '*.edf',
-    'sleep_profile': '*Sleep profile*',
-    'flow_events': '*Flow Events*',
-    'arousals': '*Classification Arousals*',
-    'baseline': '*Start-Baseline*',
-    'human_rating': '*Generic*'
-}
+from util.definitions import FILE_FINDER
 
 
 def read_input(directory_name: str, signals_to_load: List[str] = None, read_baseline=True, read_edf=True) -> Tuple[RawData, AnnotationData]:

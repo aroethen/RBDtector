@@ -15,7 +15,7 @@ from RBDtector.util.settings import Settings
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
-def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artefact_menge'):
+def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
 
     human_rated_dirs = find_all_human_rated_directories(dirname)
     s1 = pd.Series(name=('General', '', 'Subject'))
@@ -130,7 +130,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
     signals = SIGNALS_TO_EVALUATE.copy()
     categories = ('tonic', 'phasic', 'any')
 
-    artifact_free_rem_miniepochs = evaluation_df['artefact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
+    artifact_free_rem_miniepochs = evaluation_df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
 
     idx = pd.IndexSlice
     output_df.loc[idx[:, :, 'Subject'], subject] = subject
@@ -161,7 +161,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
                         (~evaluation_df[signal + r1 + '_' + category + miniepochs])
                         & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
                     )
-                    & evaluation_df['artefact_free_rem_sleep_miniepoch']
+                    & evaluation_df['artifact_free_rem_sleep_miniepoch']
                  ).sum() / (Settings.RATE * length)
             output_df.loc[(signal, category, 'shared neg'), subject] = shared_neg
 
@@ -263,21 +263,21 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     # add sleep profile to df
     df = generate_sleep_profile_df(annotation_data)
 
-    # add artefacts to df
-    df = add_artefacts_to_df(df, annotation_data)
+    # add artifacts to df
+    df = add_artifacts_to_df(df, annotation_data)
 
     # add RBDtector ratings to df
     df = pd.concat([df, rbdtector_data], axis=1)
 
     # find all 3s miniepochs of artifact-free REM sleep
-    artefact_signal = df['is_artefact'].squeeze()
-    artefact_in_3s_miniepoch = artefact_signal \
+    artifact_signal = df['is_artifact'].squeeze()
+    artifact_in_3s_miniepoch = artifact_signal \
         .resample('3s') \
         .sum()\
         .gt(0)
-    df['miniepoch_contains_artefact'] = artefact_in_3s_miniepoch
-    df['miniepoch_contains_artefact'] = df['miniepoch_contains_artefact'].ffill()
-    df['artefact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artefact']
+    df['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
+    df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
+    df['artifact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artifact']
 
     # process human rating for evaluation per signal and event
     human_rating1 = annotation_data.human_rating[0][1]
@@ -309,7 +309,7 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
 
 def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type, rater):
 
-    # For all event types (tonic, intermediate, phasic, artefact)
+    # For all event types (tonic, intermediate, phasic, artifact)
     for event_type in EVENT_TYPE.keys():
 
         # Create column for human rating of event type
@@ -329,7 +329,7 @@ def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_
 
     # adaptions to tonic
     df[signal_type + rater + '_tonic_activity'] = \
-        df[signal_type + rater + '_tonic'] & df['artefact_free_rem_sleep_miniepoch']
+        df[signal_type + rater + '_tonic'] & df['artifact_free_rem_sleep_miniepoch']
 
     tonic_in_30s_epoch = df[signal_type + rater + '_tonic_activity'].squeeze() \
         .resample('30s') \
@@ -341,7 +341,7 @@ def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_
 
     # adaptions to phasic
     df[signal_type + rater + '_phasic'] = \
-        df[signal_type + rater + '_phasic'] & df['artefact_free_rem_sleep_miniepoch']
+        df[signal_type + rater + '_phasic'] & df['artifact_free_rem_sleep_miniepoch']
 
     phasic_in_3s_miniepoch = df[signal_type + rater + '_phasic'].squeeze() \
         .resample('3s') \
@@ -365,12 +365,12 @@ def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_
     return df
 
 
-def add_artefacts_to_df(df, annotation_data):
+def add_artifacts_to_df(df, annotation_data):
 
     arousals: pd.DataFrame = annotation_data.arousals[1]
-    df['artefact_event'] = pd.Series(False, index=df.index)
+    df['artifact_event'] = pd.Series(False, index=df.index)
     for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
-        df.loc[on:off, ['artefact_event']] = True
+        df.loc[on:off, ['artifact_event']] = True
 
     if Settings.FLOW:
         flow_events = annotation_data.flow_events[1]
@@ -378,11 +378,11 @@ def add_artefacts_to_df(df, annotation_data):
         for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
             df.loc[on:off, ['flow_event']] = True
 
-    # add conditional column 'is_artefact'
+    # add conditional column 'is_artifact'
     if Settings.FLOW:
-        df['is_artefact'] = np.logical_or(df['artefact_event'], df['flow_event'])
+        df['is_artifact'] = np.logical_or(df['artifact_event'], df['flow_event'])
     else:
-        df['is_artefact'] = df['artefact_event']
+        df['is_artifact'] = df['artifact_event']
 
     return df
 

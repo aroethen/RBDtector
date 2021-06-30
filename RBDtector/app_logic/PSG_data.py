@@ -19,12 +19,12 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # DEFINITIONS
-from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL
+from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS
 from util.settings import Settings
 
-""" PSGData """
-class PSGData:
 
+class PSGData:
+    """ PSGData """
     def __init__(self, input_path: str = '', output_path: str = ''):
         self._input_path = input_path
         self._output_path = output_path
@@ -60,17 +60,24 @@ class PSGData:
     def generate_output(self):
         if not Settings.DEV:
             logging.debug('PSGData starting to generate output')
-            self._read_data()
+
+            # read input data
+            logging.debug('PSGData starting to read input')
+            self._raw_data, self._annotation_data = ir.read_input(self._input_path, Settings.SIGNALS_TO_EVALUATE)
+
+            # calculate RBD event scorings
             self._calculated_data = self._process_data()
 
             # pickle for further DEV and stats_script use
             pickle_path = os.path.join(self.output_path, 'pickledDF')
             self._calculated_data.to_pickle(pickle_path)
             logging.info(f'Pickled dataframe stored at {pickle_path}')
+
         if Settings.DEV:
             pickle_path = os.path.join(self._input_path, 'pickledDF')
             self._calculated_data = pd.read_pickle(pickle_path)
             logging.info(f'Used pickled calculation dataframe from {pickle_path}')
+
         if Settings.SHOW_PLOT:
             self.dev_plots(self._calculated_data)
 
@@ -79,11 +86,6 @@ class PSGData:
                                 signal_names=Settings.SIGNALS_TO_EVALUATE)
 
 # PRIVATE FUNCTIONS
-    def _read_data(self):
-        logging.debug('PSGData starting to read input')
-        data = ir.read_input(self._input_path, Settings.SIGNALS_TO_EVALUATE)
-        self._raw_data = data[0]
-        self._annotation_data = data[1]
 
     def _process_data(self) -> pd.DataFrame:
 
@@ -97,22 +99,22 @@ class PSGData:
         # add sleep profile to df
         df = self.add_sleep_profile_to_df(df)
 
-        # add artefacts to df
-        df = self.add_artefacts_to_df(df)
+        # add artifacts to df
+        df = self.add_artifacts_to_df(df)
 
         # cut off all samples before start of sleep_profile assessment
-        start_of_first_full_sleep_phase = df['sleep_phase'].ne('A').idxmax()
+        start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
         df = df[start_of_first_full_sleep_phase:]
 
         # find all 3s miniepochs of artifact-free REM sleep
-        artefact_signal = df['is_artefact'].squeeze()
-        artefact_in_3s_miniepoch = artefact_signal \
+        artifact_signal = df['is_artifact'].squeeze()
+        artifact_in_3s_miniepoch = artifact_signal \
             .resample('3s') \
             .sum()\
             .gt(0)
-        df['miniepoch_contains_artefact'] = artefact_in_3s_miniepoch
-        df['miniepoch_contains_artefact'] = df['miniepoch_contains_artefact'].ffill()
-        df['artefact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artefact']
+        df['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
+        df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
+        df['artifact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artifact']
 
         # process human rating for evaluation per signal and event
         human_rating = self._annotation_data.human_rating[0][1]
@@ -166,10 +168,10 @@ class PSGData:
             df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
 
             df[signal_type + '_two_times_baseline_and_valid'] = \
-                df[signal_type + '_isGE2xBaseline'] & df['artefact_free_rem_sleep_miniepoch']
+                df[signal_type + '_isGE2xBaseline'] & df['artifact_free_rem_sleep_miniepoch']
             if Settings.HUMAN_ARTIFACTS:
                 df[signal_type + '_two_times_baseline_and_valid'] = \
-                    df[signal_type + '_two_times_baseline_and_valid'] & ~df[signal_type + '_human_artefact']
+                    df[signal_type + '_two_times_baseline_and_valid'] & ~df[signal_type + '_human_artifact']
 
             df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
 
@@ -183,7 +185,7 @@ class PSGData:
             if df[signal_type + '_tonic'].any():
                 df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
                 df[signal_type + '_two_times_baseline_and_valid'] = \
-                    df[signal_type + '_isGE2xBaseline'] & df['artefact_free_rem_sleep_miniepoch']
+                    df[signal_type + '_isGE2xBaseline'] & df['artifact_free_rem_sleep_miniepoch']
                 df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
                 df = self.find_increased_sustained_activity(df, signal_type)
 
@@ -225,11 +227,11 @@ class PSGData:
         ax.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
                          facecolor='lightblue', label="is_REM", alpha=0.7)
 
-        ax.fill_between(df.index.values, df['is_artefact'] * (-550),
-                        df['is_artefact'] * 550,
+        ax.fill_between(df.index.values, df['is_artifact'] * (-550),
+                        df['is_artifact'] * 550,
                         facecolor='lightpink', label="Arousal", alpha=0.7)
-        ax.fill_between(df.index.values, df['artefact_free_rem_sleep_miniepoch'] * (-750),
-                        df['artefact_free_rem_sleep_miniepoch'] * 750,
+        ax.fill_between(df.index.values, df['artifact_free_rem_sleep_miniepoch'] * (-750),
+                        df['artifact_free_rem_sleep_miniepoch'] * 750,
                         facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
         # ACTIVITIES
         # ax.fill_between(df.index.values, df[signal_type + '_increased_activity']*(-50),
@@ -272,11 +274,11 @@ class PSGData:
         ax.fill_between(df.index.values, df[signal_type + '_increased_activity'] * (-5),
                        df[signal_type + '_increased_activity'] * 5,
                        facecolor='lightblue', label=signal_type + "_increased_activity", alpha=0.7, zorder=7)
-        ax.fill_between(df.index.values, df[signal_type + '_human_artefact']*(-1000), df[signal_type + '_human_artefact']*1000,
-                         facecolor='maroon', label=signal_type + "_human_artefact", zorder=10)
-        # ax.fill_between(df.index.values, df['miniepoch_contains_artefact'] * (-75),
-        #                  df['miniepoch_contains_artefact'] * 75,
-        #                  facecolor='#993404', label="miniepoch_contains_artefact", alpha=0.7, zorder=4)
+        ax.fill_between(df.index.values, df[signal_type + '_human_artifact']*(-1000), df[signal_type + '_human_artifact']*1000,
+                         facecolor='maroon', label=signal_type + "_human_artifact", zorder=10)
+        # ax.fill_between(df.index.values, df['miniepoch_contains_artifact'] * (-75),
+        #                  df['miniepoch_contains_artifact'] * 75,
+        #                  facecolor='#993404', label="miniepoch_contains_artifact", alpha=0.7, zorder=4)
         # SIGNAL CHANNEL
         ax.plot(df.index.values, df[signal_type + '_old'], c='#313133', label=signal_type, alpha=0.85, zorder=4)
         # ax.plot(df.index.values, df[signal_type], c='deeppink', label=signal_type + ' filtered', alpha=0.85, zorder=4)
@@ -288,8 +290,8 @@ class PSGData:
                    label='Increased activity', zorder=4)
         # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
         # ARTEFACTS
-        # ax.fill_between(df.index.values, df['is_artefact'] * (-200), df['is_artefact'] * 200,
-        #                  facecolor='#dfc27d', label="is_artefact", alpha=0.7, zorder=3)
+        # ax.fill_between(df.index.values, df['is_artifact'] * (-200), df['is_artifact'] * 200,
+        #                  facecolor='#dfc27d', label="is_artifact", alpha=0.7, zorder=3)
         ax.legend(loc='upper left', facecolor='white', framealpha=1)
         plt.savefig(os.path.join(os.path.dirname(self.output_path), os.path.basename(self.output_path) + '_figure.jpg'),
                     dpi=600)
@@ -449,7 +451,7 @@ class PSGData:
         """
         :param df: Datetimeindexed pandas.Dataframe containing columns:
             df[signal_type]: float
-            df['artefact_free_rem_sleep_miniepoch']: bool
+            df['artifact_free_rem_sleep_miniepoch']: bool
             df[signal_type + '_two_times_baseline_and_valid']: bool
             df[signal_type + '_baseline']
         :param signal_type: Signal type to find and create df[signal_type + '_increased_activity'] for
@@ -482,7 +484,7 @@ class PSGData:
                 ).fillna(False)
 
         else:
-            valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
+            valid_signal = df['artifact_free_rem_sleep_miniepoch'] * df[signal_type]
             valid_signal = valid_signal.pow(2)
             increased_in_point05s = valid_signal \
                 .resample(Settings.CHUNK_SIZE) \
@@ -495,7 +497,7 @@ class PSGData:
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
 
             if Settings.WITH_OFFSET:
-                valid_signal = df['artefact_free_rem_sleep_miniepoch'] * df[signal_type]
+                valid_signal = df['artifact_free_rem_sleep_miniepoch'] * df[signal_type]
                 valid_signal = valid_signal.pow(2)
                 increased_in_point05s_with_offset = valid_signal \
                     .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
@@ -513,7 +515,7 @@ class PSGData:
 
     def add_human_rating_for_signal_type_to_df(self, df, human_rating, human_rating_label_dict, signal_type):
 
-        # For all event types (tonic, intermediate, phasic, artefact)
+        # For all event types (tonic, intermediate, phasic, artifact)
         for event_type in EVENT_TYPE.keys():
 
             # Create column for human rating of event type
@@ -532,7 +534,7 @@ class PSGData:
                 ] = True
 
         # adaptions to phasic
-        df[signal_type + '_human_phasic'] = df[signal_type + '_human_phasic'] & df['artefact_free_rem_sleep_miniepoch']
+        df[signal_type + '_human_phasic'] = df[signal_type + '_human_phasic'] & df['artifact_free_rem_sleep_miniepoch']
 
         phasic_in_3s_miniepoch = df[signal_type + '_human_phasic'].squeeze() \
             .resample('3s') \
@@ -561,12 +563,12 @@ class PSGData:
         df[signal_type + '_baseline'] = baseline
         return df
 
-    def add_artefacts_to_df(self, df):
+    def add_artifacts_to_df(self, df):
 
         arousals: pd.DataFrame = self._annotation_data.arousals[1]
-        df['artefact_event'] = pd.Series(False, index=df.index)
+        df['artifact_event'] = pd.Series(False, index=df.index)
         for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
-            df.loc[on:off, ['artefact_event']] = True
+            df.loc[on:off, ['artifact_event']] = True
 
         if Settings.FLOW:
             flow_events = self._annotation_data.flow_events[1]
@@ -574,11 +576,11 @@ class PSGData:
             for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
                 df.loc[on:off, ['flow_event']] = True
 
-        # add conditional column 'is_artefact'
+        # add conditional column 'is_artifact'
         if Settings.FLOW:
-            df['is_artefact'] = np.logical_or(df['artefact_event'], df['flow_event'])
+            df['is_artifact'] = np.logical_or(df['artifact_event'], df['flow_event'])
         else:
-            df['is_artefact'] = df['artefact_event']
+            df['is_artifact'] = df['artifact_event']
 
         return df
 
@@ -587,7 +589,7 @@ class PSGData:
 
         # append a final row to sleep profile with "Artifact" sleep phase
         # for easier concatenation with df while correctly accounting for last 30s sleep profile interval
-        sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': 'A'},
+        sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': SLEEP_CLASSIFIERS['artifact']},
                                                           index=[sleep_profile.index.max() + pd.Timedelta('30s')])
                                              )
         sleep_profile.sort_index(inplace=True)
@@ -596,7 +598,7 @@ class PSGData:
         # and add it as column to dataframe
         resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
-        df['is_REM'] = df['sleep_phase'] == "REM"
+        df['is_REM'] = df['sleep_phase'] == SLEEP_CLASSIFIERS['REM']
         return df
 
     def _create_datetime_index(self, start_datetime):

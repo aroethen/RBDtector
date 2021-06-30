@@ -21,8 +21,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
-        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artefact_menge'
+        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
         dirlist = os.listdir(path)
         for child in dirlist:
             abs_child = os.path.join(path, child)
@@ -31,9 +31,8 @@ if __name__ == "__main__":
                 data = PSGData(abs_child, abs_child)
                 data.generate_output()
 
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs/EMG_Test_02'
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs/Unbekannt'
         # data = PSGData(path, path)
-        # # data = PSGData('/home/annika/WORK/RBDtector/Profiling_test/EMG_Test_01', '/home/annika/WORK/RBDtector/Profiling_test/EMG_Test_01')
         # data.generate_output()
 
     else:
