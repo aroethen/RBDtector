@@ -4,7 +4,7 @@ class Settings:
     SPLINES = True
     RATE = 256
     FREQ = '3.90625ms'
-    FLOW = True
+    FLOW = False
     HUMAN_ARTIFACTS = True
     COUNT_BASED_ACTIVITY = False
     MIN_SUSTAINED = 0.1
