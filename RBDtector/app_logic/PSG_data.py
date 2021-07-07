@@ -137,27 +137,6 @@ class PSGData:
                 signal_array, signal_type, start_datetime
             )[start_of_first_full_sleep_phase:]
 
-            # Apply lowpass filter to create EMG envelopes
-            df[signal_type + '_old'] = df[signal_type]
-
-            # low_pass = LOW_PASS / (RATE / 2)
-            # analytical_signal = np.abs(df[signal_type])
-            # b2, a2 = signal.butter(4, low_pass, btype='lowpass', output='ba')
-            # df[signal_type] = signal.filtfilt(b2, a2, analytical_signal)
-
-            # analytic_signal = signal.hilbert(df[signal_type])
-            # df[signal_type] = np.abs(analytic_signal)
-            # low_pass = LOW_PASS / (RATE / 2)
-            # b2, a2 = signal.butter(4, low_pass, btype='lowpass', output='ba')
-            # df[signal_type] = signal.filtfilt(b2, a2, df[signal_type])
-
-            # cutoff = 14
-            # nyq = RATE / 2
-            # normal_cutoff = cutoff / nyq
-            # b, a = signal.butter(N=2, Wn=normal_cutoff, btype='lowpass', analog=False, output='ba')
-            # df[signal_type] = signal.filtfilt(b, a, df[signal_type])
-
-
             # add signal type baseline column
             df = self.add_signal_baseline_to_df(df, signal_type)
 
@@ -171,7 +150,7 @@ class PSGData:
                 df[signal_type + '_isGE2xBaseline'] & df['artifact_free_rem_sleep_miniepoch']
             if Settings.HUMAN_ARTIFACTS:
                 df[signal_type + '_two_times_baseline_and_valid'] = \
-                    df[signal_type + '_two_times_baseline_and_valid'] & ~df[signal_type + '_human_artifact']
+                    df[signal_type + '_two_times_baseline_and_valid'] & (~df[signal_type + '_human_artifact'])
 
             df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
 
@@ -221,7 +200,6 @@ class PSGData:
         #                  )
         #
         # plt.plot(df.index.values, df[signal_type], c='#313133', label=signal_type + ' filtered', alpha=0.7, zorder=4)
-        # plt.plot(df.index.values, df[signal_type + '_old'], c='teal', label=signal_type, alpha=0.7, zorder=4)
         fig, ax = plt.subplots()
         # REM PHASES
         ax.fill_between(df.index.values, df['is_REM']*(-1000), df['is_REM']*1000,
@@ -280,7 +258,7 @@ class PSGData:
         #                  df['miniepoch_contains_artifact'] * 75,
         #                  facecolor='#993404', label="miniepoch_contains_artifact", alpha=0.7, zorder=4)
         # SIGNAL CHANNEL
-        ax.plot(df.index.values, df[signal_type + '_old'], c='#313133', label=signal_type, alpha=0.85, zorder=4)
+        ax.plot(df.index.values, df[signal_type], c='#313133', label=signal_type, alpha=0.85, zorder=4)
         # ax.plot(df.index.values, df[signal_type], c='deeppink', label=signal_type + ' filtered', alpha=0.85, zorder=4)
         ax.plot(df[signal_type + '_baseline'], c='mediumseagreen', label=signal_type + "_baseline", zorder=4)
         ax.plot(df[signal_type + '_baseline'] * (-1), c='mediumseagreen', zorder=4)
@@ -531,6 +509,22 @@ class PSGData:
                 df.loc[
                     human_rating.iloc[idx]['event_onset']:human_rating.iloc[idx]['event_end_time'],
                     [signal_type + '_human_' + event_type]
+                ] = True
+
+        # Add second human rating artifacts to dataframe if available
+        if len(self._annotation_data.human_rating) > 1:
+            second_rater = self._annotation_data.human_rating[1][1]
+            human_rating_label_dict = second_rater.groupby('event').groups
+
+            # Get relevant annotations for column
+            second_rater_event_type_indices = \
+                human_rating_label_dict.get(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE['artifact'], [])
+
+            # Set bool column true in all rows with annotated indices
+            for idx in second_rater_event_type_indices:
+                df.loc[
+                    second_rater.iloc[idx]['event_onset']:second_rater.iloc[idx]['event_end_time'],
+                    [signal_type + '_human_artifact']
                 ] = True
 
         # adaptions to phasic

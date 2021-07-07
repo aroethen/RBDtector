@@ -14,106 +14,114 @@ from RBDtector.util.settings import Settings
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
-def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
-# def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
+# def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
+def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
 
+    # Get a list of all directory paths, that contain human ratings
     human_rated_dirs = find_all_human_rated_directories(dirname)
-    s1 = pd.Series(name=('General', '', 'Subject'))
-    s2 = pd.Series(name=('General', '', 'Artifact-free REM sleep miniepochs'))
-    new_order = ['General']
-    new_order.extend(SIGNALS_TO_EVALUATE)
+
+    # Define rater names
     all_raters = ('Rater 1', 'Rater 2', 'RBDtector')
     h1_vs_h2_raters = ('Rater 1', 'Rater 2')
-    h1_vs_h2_df = pd.DataFrame(index=generate_multiindex(*h1_vs_h2_raters))\
-        .append(s1).append(s2).reindex(new_order, level=0)
     rbdtector_vs_h1_raters = ('RBDtector', 'Rater 1')
-    rbdtector_vs_h1 = pd.DataFrame(index=generate_multiindex(*rbdtector_vs_h1_raters))\
-        .append(s1).append(s2).reindex(new_order, level=0)
     rbdtector_vs_h2_raters = ('RBDtector', 'Rater 2')
-    rbdtector_vs_h2 = pd.DataFrame(index=generate_multiindex(*rbdtector_vs_h2_raters))\
-        .append(s1).append(s2).reindex(new_order, level=0)
 
-    for dirtuple in human_rated_dirs:
-        # read directory input
-        _, annotation_data = input_reader.read_input(dirtuple[1], read_baseline=False, read_edf=False)
+    # Prepare headers and order for output dataframes
+    table_header1 = pd.Series(name=('General', '', 'Subject'))
+    table_header2 = pd.Series(name=('General', '', 'Artifact-free REM sleep miniepochs'))
+    new_order = ['General']
+    new_order.extend(SIGNALS_TO_EVALUATE)
 
-        # comparison_pickles = []
-        # comparison_pickles_iterator = os.scandir(dirtuple[1])
-        # for filename in comparison_pickles_iterator:
-        #     if 'comparison_pickle' in filename.name:
-        #         comparison_pickles.append(filename.path)
-        comparison_pickles = [f.path for f in os.scandir(dirtuple[1])
+    # Build multiindex dataframe for each comparison
+    h1_vs_h2_df = pd.DataFrame(index=create_full_multiindex_for_raters(*h1_vs_h2_raters))\
+        .append(table_header1).append(table_header2).reindex(new_order, level=0)
+    rbdtector_vs_h1 = pd.DataFrame(index=create_full_multiindex_for_raters(*rbdtector_vs_h1_raters))\
+        .append(table_header1).append(table_header2).reindex(new_order, level=0)
+    rbdtector_vs_h2 = pd.DataFrame(index=create_full_multiindex_for_raters(*rbdtector_vs_h2_raters))\
+        .append(table_header1).append(table_header2).reindex(new_order, level=0)
+
+    # Loop over all human-rated PSG directories, calculate its statistical data and add it as column to each dataframe
+    for human_rated_dir in human_rated_dirs:
+
+        # read input text files of the directory into AnnotationData object annotation_data
+        _, annotation_data = input_reader.read_input(human_rated_dir, read_baseline=False, read_edf=False)
+
+        # read RBDtector dataframe from comparison_pickle in directory
+        comparison_pickles = [f.path for f in os.scandir(human_rated_dir)
                               if 'comparison_pickle' in f.name]
-
         if len(comparison_pickles) == 1:
             comparison_pickle = comparison_pickles[0]
         else:
-            print(f"No unambiguous comparison_pickle found in {dirtuple[1]}. No evaluation possible for this directory.")
+            print(f"No unambiguous comparison_pickle found in {human_rated_dir}. No evaluation possible for this directory.")
             continue
 
         rbdtector_data = pd.read_pickle(comparison_pickle)
-        print(rbdtector_data)
+
         # generate dataframe with REM sleep, artifacts and labels per rater
         evaluation_df = generate_evaluation_dataframe(annotation_data, rbdtector_data, all_raters)
-        h1_vs_h2_df = fill_in_comparison_data(h1_vs_h2_df, evaluation_df, dirtuple[0], h1_vs_h2_raters)
-        # h1_vs_h2_df.to_excel(dirname + '/human_rater_comparison.xlsx')
 
-        rbdtector_vs_h1 = fill_in_comparison_data(rbdtector_vs_h1, evaluation_df, dirtuple[0], rbdtector_vs_h1_raters)
-        rbdtector_vs_h2 = fill_in_comparison_data(rbdtector_vs_h2, evaluation_df, dirtuple[0], rbdtector_vs_h2_raters)
+        # fill in the current directories data into the comparison dataframes
+        h1_vs_h2_df = fill_in_comparison_data(h1_vs_h2_df, evaluation_df, os.path.basename(human_rated_dir), h1_vs_h2_raters)
+        rbdtector_vs_h1 = fill_in_comparison_data(rbdtector_vs_h1, evaluation_df, os.path.basename(human_rated_dir), rbdtector_vs_h1_raters)
+        rbdtector_vs_h2 = fill_in_comparison_data(rbdtector_vs_h2, evaluation_df, os.path.basename(human_rated_dir), rbdtector_vs_h2_raters)
 
-
-    # print(evaluation_df)
+    # Add summary column to statistical comparison dataframes
     h1_vs_h2_df = add_summary_column(h1_vs_h2_df, h1_vs_h2_raters)
     rbdtector_vs_h1 = add_summary_column(rbdtector_vs_h1, rbdtector_vs_h1_raters)
     rbdtector_vs_h2 = add_summary_column(rbdtector_vs_h2, rbdtector_vs_h2_raters)
 
-
+    # Write comparison dataframes to excel files
     h1_vs_h2_df.to_excel(dirname + f'/human_rater_comparison_{datetime.now()}.xlsx')
     rbdtector_vs_h1.to_excel(dirname + f'/rbdtector_vs_h1_comparison_{datetime.now()}.xlsx')
     rbdtector_vs_h2.to_excel(dirname + f'/rbdtector_vs_h2_comparison_{datetime.now()}.xlsx')
 
+    # Write last settings and definitions to a text file
     with open(os.path.join(dirname, f'settings_and_definitions_{datetime.now()}'), 'w') as f:
         f.write(Settings.to_string())
         f.write(definitions_as_string())
 
+
 def add_summary_column(output_df, raters):
+
+    # prepare definitions and index slice for multiindexing
     signals = SIGNALS_TO_EVALUATE.copy()
     categories = ('tonic', 'phasic', 'any')
-    subject = 'Summary'
-
+    summary_column_name = 'Summary'
     idx = pd.IndexSlice
-    output_df.loc[idx[:, :, 'Subject'], subject] = subject
-    output_df.loc[idx[:, :, :], subject] = output_df.loc[idx[:, :, :], :].sum(axis=1)
 
-    output_df.loc[idx[:, :, 'Subject'], subject] = subject
+    # create provisional summary column filled with the simple sum of all rows
+    output_df.loc[idx[:, :, 'Subject'], summary_column_name] = summary_column_name
+    output_df.loc[idx[:, :, :], summary_column_name] = output_df.loc[idx[:, :, :], :].sum(axis=1)
+    output_df.loc[idx[:, :, 'Subject'], summary_column_name] = summary_column_name
 
+    # loop over all dataframe rows
     for signal in signals:
         for category in categories:
 
-            output_df.loc[(signal, category, raters[0] + ' % pos'), subject] = \
-                (output_df.loc[(signal, category, raters[0] + ' abs pos'), subject] * 100) \
-                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject]
+            output_df.loc[(signal, category, raters[0] + ' % pos'), summary_column_name] = \
+                (output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name] * 100) \
+                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
 
-            output_df.loc[(signal, category, raters[1] + ' % pos'), subject] = \
-                (output_df.loc[(signal, category, raters[1] + ' abs pos'), subject] * 100) \
-                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject]
+            output_df.loc[(signal, category, raters[1] + ' % pos'), summary_column_name] = \
+                (output_df.loc[(signal, category, raters[1] + ' abs pos'), summary_column_name] * 100) \
+                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
 
-            r1_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject] \
-                         - output_df.loc[(signal, category, raters[0] + ' abs pos'), subject]
-            r2_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject] \
-                         - output_df.loc[(signal, category, raters[1] + ' abs pos'), subject]
-            p_0 = (output_df.loc[(signal, category, 'shared pos'), subject]
-                   + output_df.loc[(signal, category, 'shared neg'), subject]) \
-                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject]
+            r1_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name] \
+                         - output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name]
+            r2_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name] \
+                         - output_df.loc[(signal, category, raters[1] + ' abs pos'), summary_column_name]
+            p_0 = (output_df.loc[(signal, category, 'shared pos'), summary_column_name]
+                   + output_df.loc[(signal, category, 'shared neg'), summary_column_name]) \
+                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
 
             p_c = (
-                          (output_df.loc[(signal, category, raters[0] + ' abs pos'), subject]
-                           * output_df.loc[(signal, category, raters[1] + ' abs pos'), subject]
+                          (output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name]
+                           * output_df.loc[(signal, category, raters[1] + ' abs pos'), summary_column_name]
                            ) + (r1_abs_neg * r2_abs_neg)
                   ) \
-                / (output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], subject] ** 2)
+                / (output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name] ** 2)
 
-            output_df.loc[(signal, category, 'Cohen\'s Kappa'), subject] = (p_0 - p_c) / (1 - p_c)
+            output_df.loc[(signal, category, 'Cohen\'s Kappa'), summary_column_name] = (p_0 - p_c) / (1 - p_c)
 
 
 
@@ -195,7 +203,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
     return output_df
 
 
-def generate_multiindex(r1, r2):
+def create_full_multiindex_for_raters(r1, r2):
     factors = (
         SIGNALS_TO_EVALUATE,
         ('tonic', 'phasic', 'any'),
@@ -210,14 +218,14 @@ def generate_multiindex(r1, r2):
     return index
 
 
-def find_all_human_rated_directories(directory_name) -> List[Tuple[str, str]]:
+def find_all_human_rated_directories(directory_name) -> List[str]:
     """
-    :returns list of Tuples of all somnography directories containing human ratings and sleep profiles.
-                Format: List[Tuple[directory name, direcory path
+    :returns list of all somnography directories containing human ratings and sleep profiles.
+                Format: List[absolute directory paths]
     """
 
     # find all subdirectories of given directory
-    subdirectories = [(d.name, d.path) for d in os.scandir(os.path.abspath(directory_name))
+    subdirectories = [d.path for d in os.scandir(os.path.abspath(directory_name))
                       if d.is_dir()]
 
     # remove subdirectories without human rater files from subdirectories
@@ -225,7 +233,7 @@ def find_all_human_rated_directories(directory_name) -> List[Tuple[str, str]]:
         found_human_rater_file = False
         found_second_human_rater_file = False
         found_sleep_profile = False
-        for file in os.scandir(subdir[1]):
+        for file in os.scandir(subdir):
             filename = file.name
             if FILE_FINDER['human_rating_2'] in filename:
                 found_second_human_rater_file = True
@@ -237,7 +245,7 @@ def find_all_human_rated_directories(directory_name) -> List[Tuple[str, str]]:
         if (not (found_human_rater_file or found_second_human_rater_file)) or (not found_sleep_profile):
             subdirectories.remove(subdir)
 
-    subdirectories.sort(key=lambda t: t[0])
+    subdirectories.sort()
     if not subdirectories:
         raise FileNotFoundError('No subdirectory with two human rater files and a sleep profile file found.')
 
@@ -293,8 +301,8 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
         logging.debug(signal_type + ' start')
 
         # add human rating boolean arrays
-        df = add_human_rating_for_signal_type_to_df(df, human_rating1, human_rating1_label_dict, signal_type, '_' + r1)
-        df = add_human_rating_for_signal_type_to_df(df, human_rating2, human_rating2_label_dict, signal_type, '_' + r2)
+        df = add_human_rating_for_signal_type_to_df(df, [human_rating1, human_rating2], human_rating1_label_dict, signal_type, '_' + r1)
+        df = add_human_rating_for_signal_type_to_df(df, [human_rating2, human_rating1], human_rating2_label_dict, signal_type, '_' + r2)
 
         logging.debug(signal_type + ' end')
 
@@ -304,7 +312,9 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     return df
 
 
-def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type, rater):
+def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label_dict, signal_type, rater):
+
+    human_rating = human_ratings[0]
 
     # For all event types (tonic, intermediate, phasic, artifact)
     for event_type in EVENT_TYPE.keys():
@@ -322,6 +332,22 @@ def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_
             df.loc[
                 human_rating.iloc[idx]['event_onset']:human_rating.iloc[idx]['event_end_time'],
                 [signal_type + rater + '_' + event_type]
+            ] = True
+
+    # Add second human rating artifacts to dataframe if available
+    if human_ratings > 1:
+        second_rater = human_ratings[1]
+        second_rater_rating_label_dict = second_rater.groupby('event').groups
+
+        # Get relevant annotations for column
+        second_rater_event_type_indices = \
+            second_rater_rating_label_dict.get(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE['artifact'], [])
+
+        # Set bool column true in all rows with annotated indices
+        for idx in second_rater_event_type_indices:
+            df.loc[
+                second_rater.iloc[idx]['event_onset']:second_rater.iloc[idx]['event_end_time'],
+                [signal_type + '_human_artifact']
             ] = True
 
     # adaptions to tonic

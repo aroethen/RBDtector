@@ -22,8 +22,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
+        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
         dirlist = os.listdir(path)
         reading_problems = []
         for child in dirlist:

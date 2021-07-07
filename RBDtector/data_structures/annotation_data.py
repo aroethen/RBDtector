@@ -1,5 +1,5 @@
 # python modules
-from typing import Tuple, Dict, List, Any
+from typing import Tuple, Dict, List
 
 # external dependencies
 import pandas as pd
@@ -46,7 +46,8 @@ class AnnotationData:
                     one its end point.
 
     :param human_rating: (optional)
-        Contains all information of the human rating input file.
+        Contains a list of all information for each human rating input file.
+        Each list item has the following structure:
         (header: Dict, data: pd.DataFrame)
             header: header data of human rating input text file
             data:
