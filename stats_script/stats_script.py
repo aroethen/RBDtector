@@ -14,8 +14,8 @@ from RBDtector.util.settings import Settings
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
-# def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
-def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
+def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'):
+# def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
 
     # Get a list of all directory paths, that contain human ratings
     human_rated_dirs = find_all_human_rated_directories(dirname)
@@ -29,16 +29,18 @@ def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Codi
     # Prepare headers and order for output dataframes
     table_header1 = pd.Series(name=('General', '', 'Subject'))
     table_header2 = pd.Series(name=('General', '', 'Artifact-free REM sleep miniepochs'))
+    table_header3 = pd.Series(name=('General', '', 'Artifact-free REM sleep epochs'))
+
     new_order = ['General']
     new_order.extend(SIGNALS_TO_EVALUATE)
 
     # Build multiindex dataframe for each comparison
     h1_vs_h2_df = pd.DataFrame(index=create_full_multiindex_for_raters(*h1_vs_h2_raters))\
-        .append(table_header1).append(table_header2).reindex(new_order, level=0)
+        .append(table_header1).append(table_header2).append(table_header3).reindex(new_order, level=0)
     rbdtector_vs_h1 = pd.DataFrame(index=create_full_multiindex_for_raters(*rbdtector_vs_h1_raters))\
-        .append(table_header1).append(table_header2).reindex(new_order, level=0)
+        .append(table_header1).append(table_header2).append(table_header3).reindex(new_order, level=0)
     rbdtector_vs_h2 = pd.DataFrame(index=create_full_multiindex_for_raters(*rbdtector_vs_h2_raters))\
-        .append(table_header1).append(table_header2).reindex(new_order, level=0)
+        .append(table_header1).append(table_header2).append(table_header3).reindex(new_order, level=0)
 
     # Loop over all human-rated PSG directories, calculate its statistical data and add it as column to each dataframe
     for human_rated_dir in human_rated_dirs:
@@ -98,32 +100,39 @@ def add_summary_column(output_df, raters):
     for signal in signals:
         for category in categories:
 
+            if category == 'tonic':
+                epoch_length = 30
+                miniepochs = ''
+                total_epoch_count = output_df.loc[idx['General', '', 'Artifact-free REM sleep epochs'], summary_column_name]
+            else:
+                epoch_length = 3
+                miniepochs = '_miniepochs'
+                total_epoch_count = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
+
             output_df.loc[(signal, category, raters[0] + ' % pos'), summary_column_name] = \
                 (output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name] * 100) \
-                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
+                / total_epoch_count
 
             output_df.loc[(signal, category, raters[1] + ' % pos'), summary_column_name] = \
                 (output_df.loc[(signal, category, raters[1] + ' abs pos'), summary_column_name] * 100) \
-                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
+                / total_epoch_count
 
-            r1_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name] \
+            r1_abs_neg = total_epoch_count \
                          - output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name]
-            r2_abs_neg = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name] \
+            r2_abs_neg = total_epoch_count \
                          - output_df.loc[(signal, category, raters[1] + ' abs pos'), summary_column_name]
             p_0 = (output_df.loc[(signal, category, 'shared pos'), summary_column_name]
                    + output_df.loc[(signal, category, 'shared neg'), summary_column_name]) \
-                / output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
+                / total_epoch_count
 
             p_c = (
                           (output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name]
                            * output_df.loc[(signal, category, raters[1] + ' abs pos'), summary_column_name]
                            ) + (r1_abs_neg * r2_abs_neg)
                   ) \
-                / (output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name] ** 2)
+                / (total_epoch_count ** 2)
 
             output_df.loc[(signal, category, 'Cohen\'s Kappa'), summary_column_name] = (p_0 - p_c) / (1 - p_c)
-
-
 
     return output_df
 
@@ -136,28 +145,34 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
     categories = ('tonic', 'phasic', 'any')
 
     artifact_free_rem_miniepochs = evaluation_df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
+    artifact_free_rem_epochs = evaluation_df['artifact_free_rem_sleep_epoch'].sum() / (Settings.RATE * 30)
 
     idx = pd.IndexSlice
     output_df.loc[idx[:, :, 'Subject'], subject] = subject
     output_df.loc[idx[:, :, 'Artifact-free REM sleep miniepochs'], subject] = artifact_free_rem_miniepochs
+    output_df.loc[idx[:, :, 'Artifact-free REM sleep epochs'], subject] = artifact_free_rem_epochs
 
-    length = 3
+    epoch_length = 3
     miniepochs = '_miniepochs'
 
     for signal in signals:
         for category in categories:
 
             if category == 'tonic':
-                length = 30
+                epoch_length = 30
                 miniepochs = ''
+                artifact_free_column = evaluation_df['artifact_free_rem_sleep_epoch']
+                epoch_count = artifact_free_rem_epochs
             else:
-                length = 3
+                epoch_length = 3
                 miniepochs = '_miniepochs'
+                artifact_free_column = evaluation_df['artifact_free_rem_sleep_miniepoch']
+                epoch_count = artifact_free_rem_miniepochs
 
             shared_pos = \
                 (evaluation_df[signal + r1 + '_' + category + miniepochs]
                  & evaluation_df[signal + r2 + '_' + category + miniepochs])\
-                .sum() / (Settings.RATE * length)
+                .sum() / (Settings.RATE * epoch_length)
             output_df.loc[(signal, category, 'shared pos'), subject] = shared_pos
 
             shared_neg = \
@@ -166,37 +181,37 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
                         (~evaluation_df[signal + r1 + '_' + category + miniepochs])
                         & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
                     )
-                    & evaluation_df['artifact_free_rem_sleep_miniepoch']
-                 ).sum() / (Settings.RATE * length)
+                    & artifact_free_column
+                 ).sum() / (Settings.RATE * epoch_length)
             output_df.loc[(signal, category, 'shared neg'), subject] = shared_neg
 
             r1_abs_pos = \
                 evaluation_df[signal + r1 + '_' + category + miniepochs]\
-                .sum() / (Settings.RATE * length)
+                .sum() / (Settings.RATE * epoch_length)
             output_df.loc[(signal, category, raters[0] + ' abs pos'), subject] = r1_abs_pos
 
             output_df.loc[(signal, category, raters[0] + ' % pos'), subject] = \
-                (r1_abs_pos * 100) / artifact_free_rem_miniepochs
+                (r1_abs_pos * 100) / epoch_count
 
             output_df.loc[(signal, category, raters[0] + ' pos only'), subject] = r1_abs_pos - shared_pos
 
             r2_abs_pos = \
                 evaluation_df[signal + r2 + '_' + category + miniepochs]\
-                .sum() / (Settings.RATE * length)
+                .sum() / (Settings.RATE * epoch_length)
             output_df.loc[(signal, category, raters[1] + ' abs pos'), subject] = r2_abs_pos
 
             output_df.loc[(signal, category, raters[1] + ' % pos'), subject] = \
-                (r2_abs_pos * 100) / artifact_free_rem_miniepochs
+                (r2_abs_pos * 100) / epoch_count
 
             output_df.loc[(signal, category, raters[1] + ' pos only'), subject] = r2_abs_pos - shared_pos
 
-            r1_abs_neg = artifact_free_rem_miniepochs - r1_abs_pos
-            r2_abs_neg = artifact_free_rem_miniepochs - r2_abs_pos
+            r1_abs_neg = epoch_count - r1_abs_pos
+            r2_abs_neg = epoch_count - r2_abs_pos
             p_0 = (shared_pos + shared_neg) \
-                / artifact_free_rem_miniepochs
+                / epoch_count
 
             p_c = ((r1_abs_pos * r2_abs_pos) + (r1_abs_neg * r2_abs_neg)) \
-                / (artifact_free_rem_miniepochs ** 2)
+                / (epoch_count ** 2)
 
             output_df.loc[(signal, category, 'Cohen\'s Kappa'), subject] = (p_0 - p_c) / (1 - p_c)
 
@@ -284,6 +299,16 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
     df['artifact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artifact']
 
+    # find all 30s epochs of artifact-free REM sleep for tonic event detection
+    artifact_signal = df['is_artifact'].squeeze()
+    artifact_in_30s_epoch = artifact_signal \
+        .resample('30s') \
+        .sum() \
+        .gt(0)
+    df['epoch_contains_artifact'] = artifact_in_30s_epoch
+    df['epoch_contains_artifact'] = df['epoch_contains_artifact'].ffill()
+    df['artifact_free_rem_sleep_epoch'] = df['is_REM'] & ~df['epoch_contains_artifact']
+
     # process human rating for evaluation per signal and event
     human_rating1 = annotation_data.human_rating[0][1]
     human_rating1_label_dict = human_rating1.groupby('event').groups
@@ -335,7 +360,7 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
             ] = True
 
     # Add second human rating artifacts to dataframe if available
-    if human_ratings > 1:
+    if len(human_ratings) > 1:
         second_rater = human_ratings[1]
         second_rater_rating_label_dict = second_rater.groupby('event').groups
 

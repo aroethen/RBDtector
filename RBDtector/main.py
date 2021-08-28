@@ -5,8 +5,9 @@ import logging
 
 # internal modules
 from gui import gui
-from app_logic.PSG_data import PSGData
+from app_logic.PSG import PSG
 from util.error_for_display import ErrorForDisplay
+from util.settings import Settings
 
 DEV = True
 import os
@@ -22,8 +23,8 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
-        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
+        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
         dirlist = os.listdir(path)
         reading_problems = []
         for child in dirlist:
@@ -31,16 +32,27 @@ if __name__ == "__main__":
             if os.path.isdir(abs_child):
                 # if 'comparison_pickle' not in os.listdir(abs_child):
                 try:
-                    data = PSGData(abs_child, abs_child)
+                    data = PSG(abs_child, abs_child)
+
+                    # if Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
+                    #     data.use_pickled_df_as_calculated_data(os.path.join(abs_child, 'pickledDF'))
+                    # else:
+                    #     data.read_input()
+                    #     data.detect_RBD_arousals()
+                    #
+                    # data.write_results()
+
                     data.generate_output()
+
                 except (OSError, ErrorForDisplay) as e:
                     print(e)
                     reading_problems.append(abs_child)
                     continue
 
-        print(f'These files could not be read: {reading_problems}')
+        if len(reading_problems) is not 0:
+            print(f'These files could not be read: {reading_problems}')
         # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs/Unbekannt'
-        # data = PSGData(path, path)
+        # data = PSG(path, path)
         # data.generate_output()
 
     else:

@@ -366,6 +366,9 @@ def __read_human_rating(filenames: List[str], start_date) -> Tuple[Dict[str, str
 
             # Loop over times, durations and events and read them into respective lists
             for line in text_in_lines[first_line_of_data:]:
+                if line.strip() == "":
+                    continue
+
                 split_list = line.split('-', 1)
                 event_onset = split_list[0].strip()
                 split_list2 = str(split_list[1]).split(';')
@@ -407,11 +410,11 @@ def __read_annotation_header(text_in_lines: List[str]) -> Tuple[Dict[str, str], 
     """
     Read header data of annotation data from input text file into a dictionary
     :param text_in_lines: Output from file.readlines() of annotation text file
-    :return: Dictionary containing header data and number of first line of data
+    :return: Dictionary containing header data and index of first line of data
     """
 
     header: [Dict[str, str]] = {}
-    first_line_of_data: int = 0
+    first_line_of_data: int = -1
 
     # Read header data and find first line of data
     for index, line in enumerate(text_in_lines):

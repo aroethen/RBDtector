@@ -1,5 +1,5 @@
 import unittest
-from app_logic.PSG_data import PSGData
+from app_logic.PSG import PSG
 
 
 class TestPSGData(unittest.TestCase):

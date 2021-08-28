@@ -1,6 +1,7 @@
 # internal modules
 import os
 
+from app_logic.dataframe_creation import DataframeCreation
 from data_structures.annotation_data import AnnotationData
 from data_structures.raw_data import RawData
 from input_handling import input_reader as ir
@@ -16,29 +17,34 @@ from scipy import interpolate
 
 # dev dependencies
 import matplotlib.pyplot as plt
-from datetime import datetime
 
 # DEFINITIONS
 from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS
 from util.settings import Settings
 
 
-class PSGData:
-    """ PSGData """
+class PSG:
+    """ Perform automated detection of motoric arousals during REM sleep consistent with RBD.
+
+    :param input_path: absolute path to directory that contains an EDF file to be evaluated
+    and all relevant annotation files
+    :param output_path: absolute path to directory in which to create the result files
+    """
     def __init__(self, input_path: str = '', output_path: str = ''):
         self._input_path = input_path
         self._output_path = output_path
 
-        self._raw_data: RawData                  # content of edf file
-        self._annotation_data: AnnotationData    # content of txt files
-        self._calculated_data: pd.DataFrame = pd.DataFrame()
+        self._raw_data: RawData = None                  # content of edf file
+        self._annotation_data: AnnotationData = None    # content of txt files
+        self._calculated_data: pd.DataFrame = None      # dataframe with all currently calculated data
+
         logging.info('Definitions:\n'
                      f'BASELINE_NAME = {str(BASELINE_NAME)}\n'
                      f'HUMAN_RATING_LABEL = {str(HUMAN_RATING_LABEL)}\n'
                      f'EVENT_TYPE = {str(EVENT_TYPE)}\n'
                      f'{str(Settings.to_string())}'
                      )
-        logging.debug('New PSGData Object created')
+        logging.debug('New PSG Object created')
 
 # PUBLIC FUNCTIONS
     @property
@@ -57,21 +63,66 @@ class PSGData:
     def output_path(self, output_path):
         self._output_path = output_path
 
+    def use_pickled_df_as_calculated_data(self, pickle_path: str) -> None:
+        """ 'Setter' method for development. Sets the pickled pandas DataFrame at 'pickle_path' as
+        'self._calculated_data'.
+        :param pickle_path: absolute path of pickle file containing a previously pickled DataFrame with calculated data
+        """
+        if self._calculated_data is not None:
+            logging.info(f'Previous calculations are overwritten by content of pickle file.')
+
+        self._calculated_data = pd.read_pickle(pickle_path)
+        logging.info(f'Used pickled calculation dataframe from {pickle_path}')
+
+    def read_input(self):
+        """
+        Read input data from ``input_path`` as specified at PSG object instantiation
+
+        :return: ``self`` instance of PSG
+        """
+        logging.debug('PSG starting to read input')
+
+        self._raw_data, self._annotation_data = ir.read_input(self._input_path, Settings.SIGNALS_TO_EVALUATE)
+
+        logging.debug('PSG finished reading input')
+
+        return self
+
+    def detect_rbd_arousals(self):
+        """
+        Detects RBD arousals in
+
+        :return: ``self`` instance of PSG
+        """
+
+        signal_names = Settings.SIGNALS_TO_EVALUATE.copy()
+
+        if self._raw_data is None:
+            raise TypeError("No EDF file has been read into PSG instance. ``_raw_data`` needs to be set before rbd "
+                            "arousal detection, but 'None' was encountered.")
+
+        # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
+        start_datetime = self._raw_data.get_header()['startdate']
+        sample_rate = self._raw_data.get_data_channels()['EMG'].get_sample_rate()
+        sample_length = len(self._raw_data.get_data_channels()['EMG'].get_signal())
+
+        # prepare DataFrame with DatetimeIndex
+        idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
+        df = pd.DataFrame(index=idx)
+
+        # add sleep profile to df
+        df = self.create_sleep_profile_column(index=idx, sleep_profile=self._annotation_data.sleep_profile[1])
+
     def generate_output(self):
         if not Settings.DEV:
-            logging.debug('PSGData starting to generate output')
+            logging.debug('PSG starting to generate output')
 
             # read input data
-            logging.debug('PSGData starting to read input')
+            logging.debug('PSG starting to read input')
             self._raw_data, self._annotation_data = ir.read_input(self._input_path, Settings.SIGNALS_TO_EVALUATE)
 
             # calculate RBD event scorings
             self._calculated_data = self._process_data()
-
-            # pickle for further DEV and stats_script use
-            pickle_path = os.path.join(self.output_path, 'pickledDF')
-            self._calculated_data.to_pickle(pickle_path)
-            logging.info(f'Pickled dataframe stored at {pickle_path}')
 
         if Settings.DEV:
             pickle_path = os.path.join(self._input_path, 'pickledDF')
@@ -81,23 +132,31 @@ class PSGData:
         if Settings.SHOW_PLOT:
             self.dev_plots(self._calculated_data)
 
+        # pickle for further DEV and stats_script use
+        pickle_path = os.path.join(self.output_path, 'pickledDF')
+        self._calculated_data.to_pickle(pickle_path)
+        logging.info(f'Pickled dataframe stored at {pickle_path}')
+
         csv_writer.write_output(self._output_path,
                                 calculated_data=self._calculated_data,
                                 signal_names=Settings.SIGNALS_TO_EVALUATE)
 
-# PRIVATE FUNCTIONS
-
+    # PRIVATE FUNCTIONS
     def _process_data(self) -> pd.DataFrame:
 
-        start_datetime = self._raw_data.get_header()['startdate']
         signal_names = Settings.SIGNALS_TO_EVALUATE.copy()
 
+        # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
+        start_datetime = self._raw_data.get_header()['startdate']
+        sample_rate = self._raw_data.get_data_channels()['EMG'].get_sample_rate()
+        sample_length = len(self._raw_data.get_data_channels()['EMG'].get_signal())
+
         # prepare DataFrame with DatetimeIndex
-        idx = self._create_datetime_index(start_datetime)
+        idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
         df = pd.DataFrame(index=idx)
 
         # add sleep profile to df
-        df = self.add_sleep_profile_to_df(df)
+        df = self.create_sleep_profile_column(df)
 
         # add artifacts to df
         df = self.add_artifacts_to_df(df)
@@ -116,10 +175,26 @@ class PSGData:
         df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
         df['artifact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artifact']
 
+        # find all 30s epochs of artifact-free REM sleep for tonic event detection
+        artifact_signal = df['is_artifact'].squeeze()
+        artifact_in_30s_epoch = artifact_signal \
+            .resample('30s') \
+            .sum()\
+            .gt(0)
+        df['epoch_contains_artifact'] = artifact_in_30s_epoch
+        df['epoch_contains_artifact'] = df['epoch_contains_artifact'].ffill()
+        df['artifact_free_rem_sleep_epoch'] = df['is_REM'] & ~df['epoch_contains_artifact']
+
         # process human rating for evaluation per signal and event
         human_rating = self._annotation_data.human_rating[0][1]
         human_rating_label_dict = human_rating.groupby('event').groups
         logging.debug(human_rating_label_dict)
+
+        # TODO: remove human artifact data in final product
+        # process second human rating for artifact extraction per signal and event
+        human_rating2 = self._annotation_data.human_rating[1][1]
+        human_rating_label_dict2 = human_rating2.groupby('event').groups
+        logging.debug(human_rating_label_dict2)
 
         # FOR EACH EMG SIGNAL:
         for signal_type in signal_names.copy():
@@ -339,7 +414,8 @@ class PSGData:
         :return: original dataframe with column df[signal_type + '_tonic'] added and
                 column df[signal_type + '_baseline'] updated to tonic activity
         """
-        sustained_signal = df[signal_type + '_sustained_activity'].squeeze()
+
+        sustained_signal = (df[signal_type + '_sustained_activity'] & df['artifact_free_rem_sleep_epoch']).squeeze()
         tonic_in_30s = sustained_signal \
             .resample('30s') \
             .sum() \
@@ -513,6 +589,11 @@ class PSGData:
 
         # Add second human rating artifacts to dataframe if available
         if len(self._annotation_data.human_rating) > 1:
+
+            # create rater1-only and rater2-only artifact column
+            df[signal_type + '_human1_artifact'] = df[signal_type + '_human_artifact']
+            df[signal_type + '_human2_artifact'] = pd.Series(False, index=df.index)
+
             second_rater = self._annotation_data.human_rating[1][1]
             human_rating_label_dict = second_rater.groupby('event').groups
 
@@ -524,8 +605,14 @@ class PSGData:
             for idx in second_rater_event_type_indices:
                 df.loc[
                     second_rater.iloc[idx]['event_onset']:second_rater.iloc[idx]['event_end_time'],
-                    [signal_type + '_human_artifact']
+                    [signal_type + '_human2_artifact']
                 ] = True
+
+            # merge artifacts of both raters
+            df[signal_type + '_human_artifact'] = np.logical_or(
+                df[signal_type + '_human_artifact'],
+                df[signal_type + '_human2_artifact']
+            )
 
         # adaptions to phasic
         df[signal_type + '_human_phasic'] = df[signal_type + '_human_phasic'] & df['artifact_free_rem_sleep_miniepoch']
@@ -558,7 +645,6 @@ class PSGData:
         return df
 
     def add_artifacts_to_df(self, df):
-
         arousals: pd.DataFrame = self._annotation_data.arousals[1]
         df['artifact_event'] = pd.Series(False, index=df.index)
         for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
@@ -578,30 +664,37 @@ class PSGData:
 
         return df
 
-    def add_sleep_profile_to_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        sleep_profile: pd.DataFrame = self._annotation_data.sleep_profile[1]
+    def create_sleep_profile_column(self, df: pd.DatetimeIndex) -> pd.DataFrame:
+        """
+        :param index: DatetimeIndex to be used for sleep profile column
+        :param sleep_profile: Pandas DataFrame with categorical column "sleep_phase" containing sleeping phase 
+                classification strings. index is a DatetimeIndex containing the timestamps from the sleep profile input 
+                text file
+        :return: TODO: Turn into function
+        """
+        sleep_profile = self._annotation_data.sleep_profile[1]
+
+        sleep_profile.sort_index(inplace=True)
+
+        # if first time stamp of sleep profile is before first timestamp of emg data, set first sleep profile entry to
+        # artifact
+        if sleep_profile.index.min() < df.index[0]:
+            sleep_profile.loc[sleep_profile.index.min(), 'sleep_phase'] = SLEEP_CLASSIFIERS['artifact']
 
         # append a final row to sleep profile with "Artifact" sleep phase
         # for easier concatenation with df while correctly accounting for last 30s sleep profile interval
         sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': SLEEP_CLASSIFIERS['artifact']},
                                                           index=[sleep_profile.index.max() + pd.Timedelta('30s')])
                                              )
+
         sleep_profile.sort_index(inplace=True)
 
-        # resample sleep profile from 2Hz(30s intervals) to 256 Hz, fill all entries with the correct sleeping phase
+        # resample sleep profile from 2Hz(30s intervals) to Settings.RATE Hz, fill all entries with the correct sleeping phase
         # and add it as column to dataframe
         resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
         df['is_REM'] = df['sleep_phase'] == SLEEP_CLASSIFIERS['REM']
         return df
-
-    def _create_datetime_index(self, start_datetime):
-        freq_in_ms = 1000 / Settings.RATE
-        emg_channel = self._raw_data.get_data_channels()['EMG']
-        sample_rate = emg_channel.get_sample_rate()
-        sample_length = len(emg_channel.get_signal())
-        index_length = (sample_length / sample_rate) * Settings.RATE
-        return pd.date_range(start_datetime, freq=str(freq_in_ms) + 'ms', periods=index_length)
 
     def _signal_to_256hz_datetimeindexed_series(self, signal_array, signal_type, start_datetime):
         sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
