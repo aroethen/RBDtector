@@ -185,7 +185,7 @@ class PSG:
         df['epoch_contains_artifact'] = df['epoch_contains_artifact'].ffill()
         df['artifact_free_rem_sleep_epoch'] = df['is_REM'] & ~df['epoch_contains_artifact']
 
-        # process human rating for evaluation per signal and event
+        # process human rating for artifact evaluation per signal and event
         human_rating = self._annotation_data.human_rating[0][1]
         human_rating_label_dict = human_rating.groupby('event').groups
         logging.debug(human_rating_label_dict)

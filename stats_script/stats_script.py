@@ -8,9 +8,12 @@ from datetime import datetime
 
 from RBDtector.input_handling import input_reader
 
-from RBDtector.util.stats_definitions import FILE_FINDER, SIGNALS_TO_EVALUATE
+from RBDtector.util.stats_definitions import FILE_FINDER, SIGNALS_TO_EVALUATE, stats_definitions_as_string
 from RBDtector.util.definitions import EVENT_TYPE, HUMAN_RATING_LABEL, definitions_as_string
 from RBDtector.util.settings import Settings
+from RBDtector.util.stats_settings import StatsSettings
+
+
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
@@ -80,7 +83,9 @@ def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Codi
     # Write last settings and definitions to a text file
     with open(os.path.join(dirname, f'settings_and_definitions_{datetime.now()}'), 'w') as f:
         f.write(Settings.to_string())
+        f.write(StatsSettings.to_string())
         f.write(definitions_as_string())
+        f.write(stats_definitions_as_string())
 
 
 def add_summary_column(output_df, raters):
@@ -375,18 +380,6 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
                 [signal_type + '_human_artifact']
             ] = True
 
-    # adaptions to tonic
-    df[signal_type + rater + '_tonic_activity'] = \
-        df[signal_type + rater + '_tonic'] & df['artifact_free_rem_sleep_miniepoch']
-
-    tonic_in_30s_epoch = df[signal_type + rater + '_tonic_activity'].squeeze() \
-        .resample('30s') \
-        .sum() \
-        .gt(0)
-    df[signal_type + rater + '_tonic'] = tonic_in_30s_epoch
-    df[signal_type + rater + '_tonic'] = df[
-        signal_type + rater + '_tonic'].ffill()
-
     # adaptions to phasic
     df[signal_type + rater + '_phasic'] = \
         df[signal_type + rater + '_phasic'] & df['artifact_free_rem_sleep_miniepoch']
@@ -398,17 +391,42 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
     df[signal_type + rater + '_phasic_miniepochs'] = phasic_in_3s_miniepoch
     df[signal_type + rater + '_phasic_miniepochs'] = df[signal_type + rater + '_phasic_miniepochs'].ffill()
 
-    # adaptions to any
-    df[signal_type + rater + '_any'] = df[signal_type + rater + '_tonic'] | \
-                                                   df[signal_type + rater + '_intermediate'] | \
-                                                   df[signal_type + rater + '_phasic']
+    # preparation of any for any and tonic
+    df[signal_type + rater + '_any'] = df[signal_type + rater + '_intermediate'] | \
+                                       df[signal_type + rater + '_phasic']
 
+    # adaptions to tonic
+    df[signal_type + rater + '_tonic_activity'] = \
+        df[signal_type + rater + '_tonic'] & df['artifact_free_rem_sleep_epoch']
+
+    any_tonic_in_30s_epoch = 0
+
+    if StatsSettings.HUMAN_TONIC_GT50PCT:
+        any_epochs = df[signal_type + rater + '_any'] & df['artifact_free_rem_sleep_epoch']
+        any_tonic_in_30s_epoch = any_epochs.squeeze() \
+            .resample('30s') \
+            .sum() \
+            .gt((Settings.RATE * 30) / 2)
+
+    tonic_in_30s_epoch = df[signal_type + rater + '_tonic_activity'].squeeze() \
+        .resample('30s') \
+        .sum() \
+        .gt(0)
+
+    df[signal_type + rater + '_tonic'] = np.logical_or(tonic_in_30s_epoch, any_tonic_in_30s_epoch)
+    df[signal_type + rater + '_tonic'] = df[
+        signal_type + rater + '_tonic'].ffill()
+
+    # adaptions to any
     any_in_3s_miniepoch = df[signal_type + rater + '_any'].squeeze() \
         .resample('3s') \
         .sum() \
         .gt(0)
     df[signal_type + rater + '_any_miniepochs'] = any_in_3s_miniepoch
     df[signal_type + rater + '_any_miniepochs'] = df[signal_type + rater + '_any_miniepochs'].ffill()
+
+    df[signal_type + rater + '_any_miniepochs'] = \
+        np.logical_or(df[signal_type + rater + '_any_miniepochs'], df[signal_type + rater + '_tonic'])
 
     return df
 

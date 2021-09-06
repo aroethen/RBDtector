@@ -86,6 +86,9 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
         elif len(tmp_files) > 1:
             if file_type == 'human_rating':
                 tmp_files.sort()
+                if "NO" not in tmp_files[1]:
+                    tmp_files[0], tmp_files[1] = tmp_files[1], tmp_files[0]
+
                 files[file_type] = tmp_files
                 logging.info('{}: {}'.format(file_type, files[file_type]))
             else:

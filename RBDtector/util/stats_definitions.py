@@ -16,12 +16,9 @@ FILE_FINDER = {
 #: Signal names to evaluate during stats calculations
 SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
 
-# #: All human rated labels
-# QUALITIES = [
-#     'LeftArmPhasic', 'LeftArmTonic', 'LeftArmAny',
-#     'RightArmPhasic', 'RightArmTonic', 'RightArmAny',
-#     'LeftLegPhasic', 'LeftLegTonic', 'LeftLegAny',
-#     'RightLegPhasic', 'RightLegTonic', 'RightLegAny',
-#     'ChinPhasic', 'ChinTonic', 'ChinAny',
-#     'LeftArmArtifact', 'RightArmArtifact', 'LeftLegArtifact', 'RightLegArtifact', 'ChinArtifact'
-# ]
+
+def stats_definitions_as_string():
+    """ Convenience method to receive all definitions as formatted string. """
+    return str(f"FILE_FINDER: {FILE_FINDER}\n"
+               f"SIGNALS_TO_EVALUATE: {SIGNALS_TO_EVALUATE}\n"
+               )

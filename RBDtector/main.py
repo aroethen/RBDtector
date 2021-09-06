@@ -51,7 +51,8 @@ if __name__ == "__main__":
 
         if len(reading_problems) is not 0:
             print(f'These files could not be read: {reading_problems}')
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs/Unbekannt'
+
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs/iRBD0163'
         # data = PSG(path, path)
         # data.generate_output()
 
