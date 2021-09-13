@@ -23,38 +23,38 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
-        dirlist = os.listdir(path)
-        reading_problems = []
-        for child in dirlist:
-            abs_child = os.path.join(path, child)
-            if os.path.isdir(abs_child):
-                # if 'comparison_pickle' not in os.listdir(abs_child):
-                try:
-                    data = PSG(abs_child, abs_child)
+        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs'
+        # # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
+        # dirlist = os.listdir(path)
+        # reading_problems = []
+        # for child in dirlist:
+        #     abs_child = os.path.join(path, child)
+        #     if os.path.isdir(abs_child):
+        #         # if 'comparison_pickle' not in os.listdir(abs_child):
+        #         try:
+        #             data = PSG(abs_child, abs_child)
+        #
+        #             # if Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
+        #             #     data.use_pickled_df_as_calculated_data(os.path.join(abs_child, 'pickledDF'))
+        #             # else:
+        #             #     data.read_input()
+        #             #     data.detect_RBD_arousals()
+        #             #
+        #             # data.write_results()
+        #
+        #             data.generate_output()
+        #
+        #         except (OSError, ErrorForDisplay) as e:
+        #             print(e)
+        #             reading_problems.append(abs_child)
+        #             continue
+        #
+        # if len(reading_problems) is not 0:
+        #     print(f'These files could not be read: {reading_problems}')
 
-                    # if Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
-                    #     data.use_pickled_df_as_calculated_data(os.path.join(abs_child, 'pickledDF'))
-                    # else:
-                    #     data.read_input()
-                    #     data.detect_RBD_arousals()
-                    #
-                    # data.write_results()
-
-                    data.generate_output()
-
-                except (OSError, ErrorForDisplay) as e:
-                    print(e)
-                    reading_problems.append(abs_child)
-                    continue
-
-        if len(reading_problems) is not 0:
-            print(f'These files could not be read: {reading_problems}')
-
-        # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMG/EMGs/iRBD0163'
-        # data = PSG(path, path)
-        # data.generate_output()
+        path = '/media/SharedData/EMG/testifer/small_sample'
+        data = PSG(path, path)
+        data.generate_output()
 
     else:
         gui.gui.start_gui()
