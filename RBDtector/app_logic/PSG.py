@@ -75,15 +75,86 @@ class PSG:
         """
         Read input data from ``input_path`` as specified at PSG object instantiation
 
-        :return: ``self`` instance of PSG
+        :param signals_to_evaluate: Names of EMG signals as specified in EDF signal header
+        :return raw_data, annotation_data: RawData filled with EDF data and AnnotationData filled with the given
+        text file data
         """
         logging.debug('PSG starting to read input')
 
-        self._raw_data, self._annotation_data = ir.read_input(self._input_path, signals_to_evaluate)
+        raw_data, annotation_data = ir.read_input(self._input_path, signals_to_evaluate)
 
         logging.debug('PSG finished reading input')
 
-        return self
+        return raw_data, annotation_data
+
+    def prepare_evaluation(self, raw_data, annotation_data, signal_names, assess_flow_events):
+
+        # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
+        start_datetime = raw_data.get_header()['startdate']
+        sample_rate = raw_data.get_data_channels()['EMG'].get_sample_rate()
+        sample_length = len(raw_data.get_data_channels()['EMG'].get_signal())
+
+        # prepare DataFrame with DatetimeIndex
+        idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
+        df = pd.DataFrame(index=idx)
+
+        # add sleep profile to df
+        df = self.create_sleep_profile_column(df, annotation_data)
+
+        # cut off all samples before start of sleep_profile assessment if it exists
+        start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
+        df = df[start_of_first_full_sleep_phase:]
+
+        # add signals to DataFrame
+        for signal_type in signal_names.copy():
+            logging.debug(signal_type + ' start')
+
+            # Check if signal type exists in edf file
+            try:
+                signal_array = raw_data.get_data_channels()[signal_type].get_signal()
+            except KeyError:
+                signal_names.remove(signal_type)
+                continue
+
+            # Resample to 256 Hz and add to df
+            sample_rate = raw_data.get_data_channels()[signal_type].get_sample_rate()
+            df[signal_type] = DataframeCreation.signal_to_hz_rate_datetimeindexed_series(
+                Settings.RATE, sample_rate, signal_array, signal_type, start_datetime)[start_of_first_full_sleep_phase:]
+
+        # add global artifacts to df
+        df['is_artifact'] = self.add_artifacts_to_df(idx, annotation_data, assess_flow_events)
+
+        # find all 3s miniepochs of artifact-free REM sleep
+        df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch'] = \
+            self.find_global_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'].squeeze(),
+                                                                           df['is_REM'].squeeze())
+
+
+    def find_global_artifact_free_REM_sleep_epochs_and_miniepochs(self, idx: pd.DatetimeIndex,
+                                                                  artifact_signal_series: pd.Series,
+                                                                  is_REM_series: pd.Series):
+
+        df = pd.DataFrame(index=idx)
+
+        artifact_in_3s_miniepoch = artifact_signal_series \
+            .resample('3s') \
+            .sum() \
+            .gt(0)
+        df['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
+        df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
+        df['artifact_free_rem_sleep_miniepoch'] = is_REM_series & ~df['miniepoch_contains_artifact']
+
+        # find all 30s epochs of global artifact-free REM sleep for tonic event detection
+        artifact_in_30s_epoch = artifact_signal_series \
+            .resample('30s') \
+            .sum() \
+            .gt(0)
+        df['epoch_contains_artifact'] = artifact_in_30s_epoch
+        df['epoch_contains_artifact'] = df['epoch_contains_artifact'].ffill()
+        df['artifact_free_rem_sleep_epoch'] = is_REM_series & ~df['epoch_contains_artifact']
+
+        return df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch']
+
 
     def detect_rbd_events(self):
         """
@@ -91,24 +162,8 @@ class PSG:
 
         :return: ``self`` instance of PSG
         """
+        return NotImplementedError
 
-        signal_names = Settings.SIGNALS_TO_EVALUATE.copy()
-
-        if self._raw_data is None:
-            raise TypeError("No EDF file has been read into PSG instance. ``_raw_data`` needs to be set before rbd "
-                            "arousal detection, but 'None' was encountered.")
-
-        # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
-        start_datetime = self._raw_data.get_header()['startdate']
-        sample_rate = self._raw_data.get_data_channels()['EMG'].get_sample_rate()
-        sample_length = len(self._raw_data.get_data_channels()['EMG'].get_signal())
-
-        # prepare DataFrame with DatetimeIndex
-        idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
-        df = pd.DataFrame(index=idx)
-
-        # add sleep profile to df
-        df = self.create_sleep_profile_column(index=idx, sleep_profile=self._annotation_data.sleep_profile[1])
 
     def generate_output(self):
         if not Settings.DEV:
@@ -153,34 +208,19 @@ class PSG:
         df = pd.DataFrame(index=idx)
 
         # add sleep profile to df
-        df = self.create_sleep_profile_column(df)
+        df = self.create_sleep_profile_column(df, self._annotation_data)
 
         # add artifacts to df
-        df = self.add_artifacts_to_df(df)
+        df['is_artifact'] = self.add_artifacts_to_df(idx, self._annotation_data, Settings.FLOW)
 
-        # cut off all samples before start of sleep_profile assessment if it existsk
+        # cut off all samples before start of sleep_profile assessment if it exists
         start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
         df = df[start_of_first_full_sleep_phase:]
 
-        # find all 3s miniepochs of artifact-free REM sleep
-        artifact_signal = df['is_artifact'].squeeze()
-        artifact_in_3s_miniepoch = artifact_signal \
-            .resample('3s') \
-            .sum()\
-            .gt(0)
-        df['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
-        df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
-        df['artifact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artifact']
-
-        # find all 30s epochs of artifact-free REM sleep for tonic event detection
-        artifact_signal = df['is_artifact'].squeeze()
-        artifact_in_30s_epoch = artifact_signal \
-            .resample('30s') \
-            .sum()\
-            .gt(0)
-        df['epoch_contains_artifact'] = artifact_in_30s_epoch
-        df['epoch_contains_artifact'] = df['epoch_contains_artifact'].ffill()
-        df['artifact_free_rem_sleep_epoch'] = df['is_REM'] & ~df['epoch_contains_artifact']
+        # find all epochs and miniepochs of global artifact-free REM sleep
+        df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch'] = \
+            self.find_global_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'].squeeze(),
+                                                                           df['is_REM'].squeeze())
 
         # process human rating for artifact evaluation per signal and event
         human_rating = self._annotation_data.human_rating[0][1]
@@ -544,27 +584,29 @@ class PSG:
         df[signal_type + '_baseline'] = baseline
         return df
 
-    def add_artifacts_to_df(self, df):
-        arousals: pd.DataFrame = self._annotation_data.arousals[1]
+    def add_artifacts_to_df(self, idx: pd.DatetimeIndex, annotation_data: AnnotationData, assess_flow_events: bool):
+        arousals: pd.DataFrame = annotation_data.arousals[1]
+
+        df = pd.DataFrame(index=idx)
         df['artifact_event'] = pd.Series(False, index=df.index)
         for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
             df.loc[on:off, ['artifact_event']] = True
 
-        if Settings.FLOW:
-            flow_events = self._annotation_data.flow_events[1]
+        if assess_flow_events:
+            flow_events = annotation_data.flow_events[1]
             df['flow_event'] = pd.Series(False, index=df.index)
             for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
                 df.loc[on:off, ['flow_event']] = True
 
         # add conditional column 'is_artifact'
-        if Settings.FLOW:
+        if assess_flow_events:
             df['is_artifact'] = np.logical_or(df['artifact_event'], df['flow_event'])
         else:
             df['is_artifact'] = df['artifact_event']
 
-        return df
+        return df['is_artifact']
 
-    def create_sleep_profile_column(self, df: pd.DatetimeIndex) -> pd.DataFrame:
+    def create_sleep_profile_column(self, df: pd.DatetimeIndex, annotation_data: AnnotationData) -> pd.DataFrame:
         """
         :param index: DatetimeIndex to be used for sleep profile column
         :param sleep_profile: Pandas DataFrame with categorical column "sleep_phase" containing sleeping phase 
@@ -572,7 +614,7 @@ class PSG:
                 text file
         :return: TODO: Turn into function
         """
-        sleep_profile = self._annotation_data.sleep_profile[1]
+        sleep_profile = annotation_data.sleep_profile[1]
 
         sleep_profile.sort_index(inplace=True)
 

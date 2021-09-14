@@ -25,7 +25,6 @@ class AnnotationData:
                  Pandas DataFrame with default index containing the events per row described by the following columns:
                  'event_onset': onset time of event
                  'event_end_time': end time of event
-                 'duration_in_seconds': event duration in seconds
                  'event': flow event classification as string
 
     :param arousals:
@@ -36,7 +35,6 @@ class AnnotationData:
                  Pandas DataFrame with default index containing the events per row described by the following columns:
                  'event_onset': onset time of event
                  'event_end_time': end time of event
-                 'duration_in_seconds': event duration in seconds
                  'event': arousal event classification as string
 
     :param baseline: (optional)

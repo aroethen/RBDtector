@@ -295,6 +295,7 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     df = pd.concat([df, rbdtector_data], axis=1)
 
     # find all 3s miniepochs of artifact-free REM sleep
+    #TODO: Use function from PSGData instead (find_global_artifact_free_REM_sleep_epochs_and_miniepochs)
     artifact_signal = df['is_artifact'].squeeze()
     artifact_in_3s_miniepoch = artifact_signal \
         .resample('3s') \

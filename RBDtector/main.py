@@ -52,7 +52,7 @@ if __name__ == "__main__":
         # if len(reading_problems) is not 0:
         #     print(f'These files could not be read: {reading_problems}')
 
-        path = '/media/SharedData/EMG/testifer/small_sample'
+        path = '/media/SharedData/EMG/testifer/test1'
         data = PSG(path, path)
         data.generate_output()
 

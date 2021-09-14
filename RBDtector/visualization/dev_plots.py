@@ -14,7 +14,7 @@ def dev_plots(df, output_path=None):
     #     start_time=pd.to_datetime('22:00').time(),
     #     # end_time=datetime.datetime.combine(start_date, datetime.time(23, 00)))
     #     end_time=pd.to_datetime('23:00').time())
-    signal_type = 'EMG'
+    signal_type = 'AUX'
     # df = df.loc[df[signal_type + '_phasic_miniepochs']]
     # plt.fill_between(df.index.values,
     #                  df[signal_type + '_human_phasic'] * (-1000),

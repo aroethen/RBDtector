@@ -15,7 +15,11 @@ class PSGController:
         if Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
             data.use_pickled_df_as_calculated_data(os.path.join(input_path, 'pickledDF'))
         else:
-            data.read_input(Settings.SIGNALS_TO_EVALUATE)
+            raw_data, annotation_data = data.read_input(Settings.SIGNALS_TO_EVALUATE)
+
+            data.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE, Settings.FLOW)
+
+
             data.detect_RBD_arousals()
 
         data.write_results()
