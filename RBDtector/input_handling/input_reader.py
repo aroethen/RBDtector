@@ -19,7 +19,8 @@ from util.error_for_display import ErrorForDisplay
 from util.definitions import FILE_FINDER
 
 
-def read_input(directory_name: str, signals_to_load: List[str] = None, read_baseline=True, read_edf=True) -> Tuple[RawData, AnnotationData]:
+def read_input(directory_name: str, signals_to_load: List[str] = None,
+               read_baseline=True, read_edf=True, read_human_rating=True) -> Tuple[RawData, AnnotationData]:
     """
     Reads input data from files in given directory into (RawData, AnnotationData)
 
@@ -43,7 +44,7 @@ def read_input(directory_name: str, signals_to_load: List[str] = None, read_base
     else:
         raw_data = None
 
-    annotation_data: AnnotationData = __read_txt_files(filenames, read_baseline)
+    annotation_data: AnnotationData = __read_txt_files(filenames, read_baseline, read_human_rating)
     return raw_data, annotation_data
 
 
@@ -132,7 +133,7 @@ def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
     return RawData(header, data_channels)
 
 
-def __read_txt_files(filenames: Dict, read_baseline: bool = True) -> AnnotationData:
+def __read_txt_files(filenames: Dict, read_baseline: bool = True, read_human_rating=True) -> AnnotationData:
     """
     Reads data of all polysomnography annotation files
     :param filenames:
@@ -151,8 +152,11 @@ def __read_txt_files(filenames: Dict, read_baseline: bool = True) -> AnnotationD
     else:
         baseline = None
 
-    human_rating = __read_human_rating(
-        filenames['human_rating'], start_date=start_date, recording_start_after_midnight=recording_start_after_midnight)
+    if read_human_rating:
+        human_rating = __read_human_rating(
+            filenames['human_rating'], start_date=start_date, recording_start_after_midnight=recording_start_after_midnight)
+    else:
+        human_rating = None
 
     logging.debug('.txt files read')
     return AnnotationData(sleep_profile, flow_events, arousals, baseline, human_rating)
@@ -312,7 +316,9 @@ def __read_baseline(filename: str, start_date: datetime.date, recording_start_af
                               '\nFull traceback information of the error is logged in logfile.txt.') from e
 
 
-def __read_human_rating(filenames: List[str], start_date, recording_start_after_midnight) -> Tuple[Dict[str, str], pd.DataFrame]:
+def __read_human_rating(filenames: List[str], start_date, recording_start_after_midnight) \
+        -> List[Tuple[Dict[str, str], pd.DataFrame]]:
+
     human_rating = []
 
     for filename in filenames:
@@ -337,6 +343,9 @@ def __read_human_rating(filenames: List[str], start_date, recording_start_after_
             df['event'].astype('category')
             human_rating.append((header, df))
             f.close()
+
+        if not human_rating:
+            raise ErrorForDisplay("Human rating could not be found or read.")
 
     return human_rating
 

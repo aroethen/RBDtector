@@ -1,3 +1,6 @@
 numpy
 pyEDFlib
 ttkthemes
+pandas
+scipy
+matplotlib

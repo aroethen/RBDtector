@@ -36,41 +36,41 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
         comparison_df = calculated_data[miniepoch_column_names]
         comparison_df.to_pickle(os.path.join(output_path, 'comparison_pickle'))
 
-        df = calculated_data
-        df_out = pd.DataFrame()
-        df_out['rater'] = pd.Series('RBDtector')
-        df_out['rem_sleep_duration_in_s'] = pd.Series(df['is_REM'].sum() / 256)
-        df_out['artifact_free_rem_sleep_in_s'] = pd.Series(df['artifact_free_rem_sleep_miniepoch'].sum() / 256)
-        matched_human_miniepochs = {}
-
-        for signal in signal_names:
-            start_of_one_signal = datetime.now()
-            matched_human_miniepochs[signal] = (df[signal + '_human_phasic_miniepochs'] & df[signal + '_phasic_miniepochs'])\
-                                                   .sum() / (256 * 3)
-
-            for category in ['tonic', 'phasic', 'any']:
-                for rater in ['']:
-                    if category == 'tonic':
-                        df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] = pd.Series(
-                            df[signal + '{}_{}'.format(rater, category)].sum() / 256
-                        )
-
-                        df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] = pd.Series(
-                            df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] / 30
-                        )
-
-                    else:
-                        df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] = pd.Series(
-                            df[signal + '{}_{}_miniepochs'.format(rater, category)].sum() / (256 * 3)
-                        )
-
-        with open(os.path.join(output_path, 'matched_human_phasic_miniepochs.csv'), 'w') as f:
-            w = csv.DictWriter(f, matched_human_miniepochs.keys())
-            w.writeheader()
-            w.writerow(matched_human_miniepochs)
-
-        df_out.info()
-        df_out.to_csv(os.path.join(output_path, 'csv_stats_output.csv'), index=False)
+        # df = calculated_data.copy()
+        # df_out = pd.DataFrame()
+        # df_out['rater'] = pd.Series('RBDtector')
+        # df_out['rem_sleep_duration_in_s'] = pd.Series(df['is_REM'].sum() / 256)
+        # df_out['artifact_free_rem_sleep_in_s'] = pd.Series(df['artifact_free_rem_sleep_miniepoch'].sum() / 256)
+        # matched_human_miniepochs = {}
+        #
+        # for signal in signal_names:
+        #     start_of_one_signal = datetime.now()
+        #     matched_human_miniepochs[signal] = (df[signal + '_human_phasic_miniepochs'] & df[signal + '_phasic_miniepochs'])\
+        #                                            .sum() / (256 * 3)
+        #
+        #     for category in ['tonic', 'phasic', 'any']:
+        #         for rater in ['']:
+        #             if category == 'tonic':
+        #                 df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] = pd.Series(
+        #                     df[signal + '{}_{}'.format(rater, category)].sum() / 256
+        #                 )
+        #
+        #                 df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] = pd.Series(
+        #                     df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] / 30
+        #                 )
+        #
+        #             else:
+        #                 df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] = pd.Series(
+        #                     df[signal + '{}_{}_miniepochs'.format(rater, category)].sum() / (256 * 3)
+        #                 )
+        #
+        # with open(os.path.join(output_path, 'matched_human_phasic_miniepochs.csv'), 'w') as f:
+        #     w = csv.DictWriter(f, matched_human_miniepochs.keys())
+        #     w.writeheader()
+        #     w.writerow(matched_human_miniepochs)
+        #
+        # df_out.info()
+        # df_out.to_csv(os.path.join(output_path, 'csv_stats_output.csv'), index=False)
 
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
             f.write(f"Date: {datetime.now()}"
