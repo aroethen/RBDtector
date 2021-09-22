@@ -349,13 +349,18 @@ class PSG:
                                                                   signal_artifacts, signal_names):
         df = pd.DataFrame(index=index)
         df_help = pd.DataFrame(index=index)
+        signal_artifacts_used = 1
 
         # find artifact-free REM sleep miniepochs per signal:
         for signal_name in signal_names:
 
             # global and signal artifacts
-            artifact_signal_series = np.logical_or(
-                is_global_artifact_series, signal_artifacts[signal_name + '_signal_artifact'])
+            if signal_artifacts is not None:
+                artifact_signal_series = np.logical_or(
+                    is_global_artifact_series, signal_artifacts[signal_name + '_signal_artifact'])
+            else:
+                artifact_signal_series = is_global_artifact_series
+                signal_artifacts_used = 0
 
             # artifact-free miniepochs for signal
             artifact_in_3s_miniepoch = artifact_signal_series \
@@ -375,6 +380,9 @@ class PSG:
             df_help['epoch_contains_artifact'] = artifact_in_30s_epoch
             df_help['epoch_contains_artifact'] = df_help['epoch_contains_artifact'].ffill()
             df[signal_name + '_artifact_free_rem_sleep_epoch'] = is_REM_series & ~df_help['epoch_contains_artifact']
+
+            if not signal_artifacts_used:
+                logging.info('No special signal artifacts were used. All signals use global artifacts only.')
 
         return df
 

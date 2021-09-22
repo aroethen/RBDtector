@@ -8,6 +8,8 @@ from datetime import datetime
 
 from RBDtector.input_handling import input_reader
 
+from RBDtector.app_logic.PSG import PSG
+
 from RBDtector.util.stats_definitions import FILE_FINDER, SIGNALS_TO_EVALUATE, stats_definitions_as_string
 from RBDtector.util.definitions import EVENT_TYPE, HUMAN_RATING_LABEL, definitions_as_string
 from RBDtector.util.settings import Settings
@@ -16,7 +18,7 @@ from RBDtector.util.stats_settings import StatsSettings
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
-def generate_descripive_statistics(dirname='/media/SharedData/EMG/testifer'):
+def generate_descripive_statistics(dirname='/media/SharedData/EMG/EMGs'):
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
 
     # Get a list of all directory paths, that contain human ratings
@@ -29,9 +31,9 @@ def generate_descripive_statistics(dirname='/media/SharedData/EMG/testifer'):
     rbdtector_vs_h2_raters = ('RBDtector', 'Rater 2')
 
     # Prepare headers and order for output dataframes
-    table_header1 = pd.Series(name=('General', '', 'Subject'))
-    table_header2 = pd.Series(name=('General', '', 'Artifact-free REM sleep miniepochs'))
-    table_header3 = pd.Series(name=('General', '', 'Artifact-free REM sleep epochs'))
+    table_header1 = pd.Series(name=('General', '', 'Subject'), dtype='str')
+    table_header2 = pd.Series(name=('General', '', 'Global Artifact-free REM sleep miniepochs'), dtype='int')
+    table_header3 = pd.Series(name=('General', '', 'Global Artifact-free REM sleep epochs'), dtype='int')
 
     new_order = ['General']
     new_order.extend(SIGNALS_TO_EVALUATE)
@@ -104,14 +106,8 @@ def add_summary_column(output_df, raters):
     for signal in signals:
         for category in categories:
 
-            if category == 'tonic':
-                epoch_length = 30
-                miniepochs = ''
-                total_epoch_count = output_df.loc[idx['General', '', 'Artifact-free REM sleep epochs'], summary_column_name]
-            else:
-                epoch_length = 3
-                miniepochs = '_miniepochs'
-                total_epoch_count = output_df.loc[idx['General', '', 'Artifact-free REM sleep miniepochs'], summary_column_name]
+            total_epoch_count = \
+                output_df.loc[(signal, category, 'Artifact-free REM sleep (mini-)epochs'), summary_column_name]
 
             output_df.loc[(signal, category, raters[0] + ' % pos'), summary_column_name] = \
                 (output_df.loc[(signal, category, raters[0] + ' abs pos'), summary_column_name] * 100) \
@@ -153,8 +149,8 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
 
     idx = pd.IndexSlice
     output_df.loc[idx[:, :, 'Subject'], subject] = subject
-    output_df.loc[idx[:, :, 'Artifact-free REM sleep miniepochs'], subject] = artifact_free_rem_miniepochs
-    output_df.loc[idx[:, :, 'Artifact-free REM sleep epochs'], subject] = artifact_free_rem_epochs
+    output_df.loc[idx[:, :, 'Global Artifact-free REM sleep miniepochs'], subject] = artifact_free_rem_miniepochs
+    output_df.loc[idx[:, :, 'Global Artifact-free REM sleep epochs'], subject] = artifact_free_rem_epochs
 
     epoch_length = 3
     miniepochs = '_miniepochs'
@@ -162,16 +158,39 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
     for signal in signals:
         for category in categories:
 
+            # preparation of variables according to current signal and whether human artifacts were considered
+            # during RBDtection
             if category == 'tonic':
                 epoch_length = 30
                 miniepochs = ''
-                artifact_free_column = evaluation_df['artifact_free_rem_sleep_epoch']
-                epoch_count = artifact_free_rem_epochs
+
+                # if human artifacts were not considered in RBDtection,
+                # use the global artifact-free-rem-sleep for total epoch count
+                if Settings.HUMAN_ARTIFACTS:
+                    # local signal artifacts
+                    artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_epoch']
+                    epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
+                else:
+                    # global artifacts
+                    artifact_free_column = evaluation_df['artifact_free_rem_sleep_epoch']
+                    epoch_count = artifact_free_rem_epochs
+
             else:
                 epoch_length = 3
                 miniepochs = '_miniepochs'
-                artifact_free_column = evaluation_df['artifact_free_rem_sleep_miniepoch']
-                epoch_count = artifact_free_rem_miniepochs
+
+                # if human artifacts were not considered in RBDtection,
+                # use the global artifact-free-rem-sleep for total epoch count
+                if Settings.HUMAN_ARTIFACTS:
+                    # local signal artifacts
+                    artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_miniepoch']
+                    epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
+                else:
+                    # global artifacts
+                    artifact_free_column = evaluation_df['artifact_free_rem_sleep_miniepoch']
+                    epoch_count = artifact_free_rem_miniepochs
+
+            output_df.loc[(signal, category, 'Artifact-free REM sleep (mini-)epochs'), subject] = epoch_count
 
             shared_pos = \
                 (evaluation_df[signal + r1 + '_' + category + miniepochs]
@@ -182,10 +201,9 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
             shared_neg = \
                 (
                     (
-                        (~evaluation_df[signal + r1 + '_' + category + miniepochs])
-                        & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
-                    )
-                    & artifact_free_column
+                            (~evaluation_df[signal + r1 + '_' + category + miniepochs])
+                            & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
+                    ) & artifact_free_column
                  ).sum() / (Settings.RATE * epoch_length)
             output_df.loc[(signal, category, 'shared neg'), subject] = shared_neg
 
@@ -227,6 +245,7 @@ def create_full_multiindex_for_raters(r1, r2):
         SIGNALS_TO_EVALUATE,
         ('tonic', 'phasic', 'any'),
         (
+            'Artifact-free REM sleep (mini-)epochs',
             'shared pos', 'shared neg',
             r1 + ' abs pos', r1 + ' % pos', r1 + ' pos only',
             r2 + ' abs pos', r2 + ' % pos', r2 + ' pos only',
@@ -293,26 +312,9 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     # add RBDtector ratings to df
     df = pd.concat([df, rbdtector_data], axis=1)
 
-    # find all 3s miniepochs of artifact-free REM sleep
-    #TODO: Use function from PSGData instead (find_global_artifact_free_REM_sleep_epochs_and_miniepochs)
-    artifact_signal = df['is_artifact'].squeeze()
-    artifact_in_3s_miniepoch = artifact_signal \
-        .resample('3s') \
-        .sum()\
-        .gt(0)
-    df['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
-    df['miniepoch_contains_artifact'] = df['miniepoch_contains_artifact'].ffill()
-    df['artifact_free_rem_sleep_miniepoch'] = df['is_REM'] & ~df['miniepoch_contains_artifact']
-
-    # find all 30s epochs of artifact-free REM sleep for tonic event detection
-    artifact_signal = df['is_artifact'].squeeze()
-    artifact_in_30s_epoch = artifact_signal \
-        .resample('30s') \
-        .sum() \
-        .gt(0)
-    df['epoch_contains_artifact'] = artifact_in_30s_epoch
-    df['epoch_contains_artifact'] = df['epoch_contains_artifact'].ffill()
-    df['artifact_free_rem_sleep_epoch'] = df['is_REM'] & ~df['epoch_contains_artifact']
+    # find all (mini-)epochs of artifact-free REM sleep
+    df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch'] = \
+        PSG.find_global_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'], df['is_REM'])
 
     # process human rating for evaluation per signal and event
     human_rating1 = annotation_data.human_rating[0][1]
@@ -326,15 +328,31 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
         human_rating2 = None
         human_rating2_label_dict = None
 
-    # FOR EACH EMG SIGNAL:
-    for signal_type in signal_names.copy():
-        logging.debug(signal_type + ' start')
+    # find human artifacts
+    human_signal_artifacts = PSG.prepare_human_signal_artifacts(annotation_data, df.index, signal_names)
+    signal_artifacts = pd.DataFrame(index=df.index)
+    for signal_name in signal_names:
+        signal_artifacts[signal_name + '_signal_artifact'] = \
+            human_signal_artifacts[signal_name + '_human_artifact']
 
+    artifact_free_rem_sleep_per_signal = PSG.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
+        df.index, df['is_REM'], df['is_artifact'], signal_artifacts, signal_names)
+
+    # FOR EACH EMG SIGNAL add human rating:
+    for signal_name in signal_names.copy():
         # add human rating boolean arrays
-        df = add_human_rating_for_signal_type_to_df(df, [human_rating1, human_rating2], human_rating1_label_dict, signal_type, '_' + r1)
-        df = add_human_rating_for_signal_type_to_df(df, [human_rating2, human_rating1], human_rating2_label_dict, signal_type, '_' + r2)
+        df = add_human_rating_for_signal_type_to_df(
+            df, human_rating1, human_rating1_label_dict, signal_name, '_' + r1,
+            artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_epoch'],
+            artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+        )
+        df = add_human_rating_for_signal_type_to_df(
+            df, human_rating2, human_rating2_label_dict, signal_name, '_' + r2,
+            artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_epoch'],
+            artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+        )
 
-        logging.debug(signal_type + ' end')
+    df = pd.concat([df, artifact_free_rem_sleep_per_signal], axis=1)
 
     df = df.fillna(False)
     print(df.info())
@@ -342,12 +360,13 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     return df
 
 
-def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label_dict, signal_type, rater):
-
-    human_rating = human_ratings[0]
+def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type, rater,
+                                           artifact_free_rem_sleep_epochs, artifact_free_rem_sleep_miniepochs):
 
     # For all event types (tonic, intermediate, phasic, artifact)
     for event_type in EVENT_TYPE.keys():
+        if event_type == 'artifact':
+            continue
 
         # Create column for human rating of event type
         df[signal_type + rater + '_' + event_type] = pd.Series(False, index=df.index)
@@ -364,25 +383,9 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
                 [signal_type + rater + '_' + event_type]
             ] = True
 
-    # Add second human rating artifacts to dataframe if available
-    if len(human_ratings) > 1:
-        second_rater = human_ratings[1]
-        second_rater_rating_label_dict = second_rater.groupby('event').groups
-
-        # Get relevant annotations for column
-        second_rater_event_type_indices = \
-            second_rater_rating_label_dict.get(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE['artifact'], [])
-
-        # Set bool column true in all rows with annotated indices
-        for idx in second_rater_event_type_indices:
-            df.loc[
-                second_rater.iloc[idx]['event_onset']:second_rater.iloc[idx]['event_end_time'],
-                [signal_type + '_human_artifact']
-            ] = True
-
     # adaptions to phasic
     df[signal_type + rater + '_phasic'] = \
-        df[signal_type + rater + '_phasic'] & df['artifact_free_rem_sleep_miniepoch']
+        df[signal_type + rater + '_phasic'] & artifact_free_rem_sleep_miniepochs
 
     phasic_in_3s_miniepoch = df[signal_type + rater + '_phasic'].squeeze() \
         .resample('3s') \
@@ -390,19 +393,21 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
         .gt(0)
     df[signal_type + rater + '_phasic_miniepochs'] = phasic_in_3s_miniepoch
     df[signal_type + rater + '_phasic_miniepochs'] = df[signal_type + rater + '_phasic_miniepochs'].ffill()
+    df[signal_type + rater + '_phasic_miniepochs'] = \
+        df[signal_type + rater + '_phasic_miniepochs'] & artifact_free_rem_sleep_miniepochs
 
     # preparation of any for any and tonic
-    df[signal_type + rater + '_any'] = df[signal_type + rater + '_intermediate'] | \
-                                       df[signal_type + rater + '_phasic']
+    df[signal_type + rater + '_any'] = (df[signal_type + rater + '_intermediate'] |
+                                       df[signal_type + rater + '_phasic']) & artifact_free_rem_sleep_miniepochs
 
     # adaptions to tonic
     df[signal_type + rater + '_tonic_activity'] = \
-        df[signal_type + rater + '_tonic'] & df['artifact_free_rem_sleep_epoch']
+        df[signal_type + rater + '_tonic'] & artifact_free_rem_sleep_epochs
 
     any_tonic_in_30s_epoch = 0
 
     if StatsSettings.HUMAN_TONIC_GT50PCT:
-        any_epochs = df[signal_type + rater + '_any'] & df['artifact_free_rem_sleep_epoch']
+        any_epochs = df[signal_type + rater + '_any'] & artifact_free_rem_sleep_epochs
         any_tonic_in_30s_epoch = any_epochs.squeeze() \
             .resample('30s') \
             .sum() \
@@ -416,6 +421,7 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
     df[signal_type + rater + '_tonic'] = np.logical_or(tonic_in_30s_epoch, any_tonic_in_30s_epoch)
     df[signal_type + rater + '_tonic'] = df[
         signal_type + rater + '_tonic'].ffill()
+    df[signal_type + rater + '_tonic'] = df[signal_type + rater + '_tonic'] & artifact_free_rem_sleep_epochs
 
     # adaptions to any
     any_in_3s_miniepoch = df[signal_type + rater + '_any'].squeeze() \
@@ -424,6 +430,8 @@ def add_human_rating_for_signal_type_to_df(df, human_ratings, human_rating_label
         .gt(0)
     df[signal_type + rater + '_any_miniepochs'] = any_in_3s_miniepoch
     df[signal_type + rater + '_any_miniepochs'] = df[signal_type + rater + '_any_miniepochs'].ffill()
+    df[signal_type + rater + '_any_miniepochs'] = df[signal_type + rater + '_any_miniepochs'] \
+                                                  & artifact_free_rem_sleep_miniepochs
 
     df[signal_type + rater + '_any_miniepochs'] = \
         np.logical_or(df[signal_type + rater + '_any_miniepochs'], df[signal_type + rater + '_tonic'])
