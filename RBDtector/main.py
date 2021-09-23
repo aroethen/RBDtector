@@ -24,7 +24,7 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        path = '/media/SharedData/EMG/EMGs'
+        path = '/media/SharedData/EMG/testifer'
         # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
         dirlist = os.listdir(path)
         reading_problems = []

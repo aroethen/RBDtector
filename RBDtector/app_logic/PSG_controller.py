@@ -25,7 +25,7 @@ class PSGController:
 
             # find all (mini)epochs of global artifact-free REM sleep
             is_global_artifact_free_rem_sleep_epoch_series, is_global_artifact_free_rem_sleep_miniepoch_series = \
-                psg.find_global_artifact_free_REM_sleep_epochs_and_miniepochs(
+                psg.find_artifact_free_REM_sleep_epochs_and_miniepochs(
                     idx=df_signals.index, artifact_signal_series=is_global_artifact_series, is_REM_series=is_REM_series)
 
             human_signal_artifacts = None

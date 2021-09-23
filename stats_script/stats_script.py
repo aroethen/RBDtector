@@ -307,14 +307,14 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
     df = generate_sleep_profile_df(annotation_data)
 
     # add artifacts to df
-    df = add_artifacts_to_df(df, annotation_data)
+    df = add_global_artifacts_to_df(df, annotation_data)
 
     # add RBDtector ratings to df
     df = pd.concat([df, rbdtector_data], axis=1)
 
     # find all (mini-)epochs of artifact-free REM sleep
     df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch'] = \
-        PSG.find_global_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'], df['is_REM'])
+        PSG.find_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'], df['is_REM'])
 
     # process human rating for evaluation per signal and event
     human_rating1 = annotation_data.human_rating[0][1]
@@ -439,7 +439,7 @@ def add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_
     return df
 
 
-def add_artifacts_to_df(df, annotation_data):
+def add_global_artifacts_to_df(df, annotation_data):
 
     arousals: pd.DataFrame = annotation_data.arousals[1]
     df['artifact_event'] = pd.Series(False, index=df.index)

@@ -118,8 +118,8 @@ class PSG:
 
         # find all epochs and miniepochs of global artifact-free REM sleep
         df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch'] = \
-            self.find_global_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'].squeeze(),
-                                                                           df['is_REM'].squeeze())
+            self.find_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'].squeeze(),
+                                                                    df['is_REM'].squeeze())
 
         # process human rating for artifact evaluation per signal and event
         human_rating = self._annotation_data.human_rating[0][1]
@@ -264,9 +264,16 @@ class PSG:
         return df[signal_names], df['is_REM'], df['is_global_artifact'], signal_names
 
     @staticmethod
-    def find_global_artifact_free_REM_sleep_epochs_and_miniepochs(idx: pd.DatetimeIndex,
-                                                                  artifact_signal_series: pd.Series,
-                                                                  is_REM_series: pd.Series):
+    def find_artifact_free_REM_sleep_epochs_and_miniepochs(idx: pd.DatetimeIndex,
+                                                           artifact_signal_series: pd.Series,
+                                                           is_REM_series: pd.Series):
+        """
+
+        :param idx:
+        :param artifact_signal_series:
+        :param is_REM_series:
+        :return: Tuple of pandas Series (Artifact-free REM epochs, Artifact-free REM miniepochs)
+        """
 
         df = pd.DataFrame(index=idx)
 
@@ -362,24 +369,9 @@ class PSG:
                 artifact_signal_series = is_global_artifact_series
                 signal_artifacts_used = 0
 
-            # artifact-free miniepochs for signal
-            artifact_in_3s_miniepoch = artifact_signal_series \
-                .resample('3s') \
-                .sum() \
-                .gt(0)
-            # TODO: Find out whether df_help is necessary or can be skipped
-            df_help['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
-            df_help['miniepoch_contains_artifact'] = df_help['miniepoch_contains_artifact'].ffill()
-            df[signal_name + '_artifact_free_rem_sleep_miniepoch'] = is_REM_series & ~df_help['miniepoch_contains_artifact']
-
-            # artifact-free epochs for signal
-            artifact_in_30s_epoch = artifact_signal_series \
-                .resample('30s') \
-                .sum() \
-                .gt(0)
-            df_help['epoch_contains_artifact'] = artifact_in_30s_epoch
-            df_help['epoch_contains_artifact'] = df_help['epoch_contains_artifact'].ffill()
-            df[signal_name + '_artifact_free_rem_sleep_epoch'] = is_REM_series & ~df_help['epoch_contains_artifact']
+            df[signal_name + '_artifact_free_rem_sleep_epoch'], df[signal_name + '_artifact_free_rem_sleep_miniepoch']\
+                = PSG.find_artifact_free_REM_sleep_epochs_and_miniepochs(
+                index, artifact_signal_series=artifact_signal_series, is_REM_series=is_REM_series)
 
             if not signal_artifacts_used:
                 logging.info('No special signal artifacts were used. All signals use global artifacts only.')
