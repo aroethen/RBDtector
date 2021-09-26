@@ -176,8 +176,8 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
         output_df.loc[(signal, 'shared non-artifact'), subject] = shared_neg
 
         r1_abs_pos = \
-            evaluation_df[signal + r1 + signal_artifact] \
-                .sum() / (Settings.RATE * epoch_length)
+            evaluation_df[signal + r1 + signal_artifact].sum() / (Settings.RATE * epoch_length)
+
         output_df.loc[(signal, raters[0] + ' abs artifact'), subject] = r1_abs_pos
 
         output_df.loc[(signal, raters[0] + ' % artifact'), subject] = \

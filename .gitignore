@@ -17,5 +17,14 @@ Non-Coding-Content/
 TESTS_FILES/
 stats_script/output_tables/
 trials/
-
+Profiling_test/
+RBDtector/.ipynb_checkpoints/
+RBDtector/RBDtector.egg-info/
+RBDtector/Untitled.ipynb
+RBDtector/bin/
+RBDtector/lib/
+RBDtector/lib64
+RBDtector/pyvenv.cfg
+RBDtector/share/
+docs/
 
