@@ -10,7 +10,7 @@ from ttkthemes import ThemedTk
 import logging
 
 # internal
-from app_logic.PSG import PSG
+from app_logic.PSG_controller import PSGController
 from util.error_for_display import ErrorForDisplay
 
 # global variables
@@ -70,12 +70,12 @@ def start_gui():
         root.mainloop()
 
 
-def _select_folder_handler(dir_string):
+def _select_folder_handler(dir_text_variable):
     directory = tk.filedialog.askdirectory()
     if not directory:
         return
     else:
-        dir_string.set(str(directory))
+        dir_text_variable.set(str(directory))
 
 
 def _trigger_calculation(input_dir, output_dir):
@@ -87,8 +87,7 @@ def _trigger_calculation(input_dir, output_dir):
 
         try:
             start_time = datetime.datetime.now()
-            data = PSG(input_dir, output_dir)
-            data.generate_output()
+            PSGController.run_rbd_detection(input_dir, output_dir)
             end_time = datetime.datetime.now()
             print('Overall calculation time: ' + str(end_time - start_time))
         except ErrorForDisplay as e:
