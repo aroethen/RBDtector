@@ -7,6 +7,7 @@ from data_structures.annotation_data import AnnotationData
 from data_structures.raw_data import RawData
 from input_handling import input_reader as ir
 from output import csv_writer
+from util.error_for_display import ErrorForDisplay
 from visualization.dev_plots import dev_plots
 
 # python modules
@@ -19,6 +20,9 @@ import pandas as pd
 # DEFINITIONS
 from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS
 from util.settings import Settings
+
+# Dev dependencies
+import matplotlib.pyplot as plt
 
 
 class PSG:
@@ -61,140 +65,6 @@ class PSG:
     def output_path(self, output_path):
         self._output_path = output_path
 
-
-### OLD 'monolith' WORKFLOW
-
-    def generate_output(self):
-        if not Settings.DEV:
-            logging.debug('PSG starting to generate output')
-
-            # read input data
-            logging.debug('PSG starting to read input')
-            self._raw_data, self._annotation_data = ir.read_input(self._input_path, Settings.SIGNALS_TO_EVALUATE)
-
-            # calculate RBD event scorings
-            self._calculated_data = self._process_data()
-
-        if Settings.DEV:
-            pickle_path = os.path.join(self._input_path, 'pickledDF')
-            self._calculated_data = pd.read_pickle(pickle_path)
-            logging.info(f'Used pickled calculation dataframe from {pickle_path}')
-
-        if Settings.SHOW_PLOT:
-            dev_plots(self._calculated_data, self.output_path)
-
-        # pickle for further DEV and stats_script use
-        pickle_path = os.path.join(self.output_path, 'pickledDF')
-        self._calculated_data.to_pickle(pickle_path)
-        logging.info(f'Pickled dataframe stored at {pickle_path}')
-
-        csv_writer.write_output(self._output_path,
-                                calculated_data=self._calculated_data,
-                                signal_names=Settings.SIGNALS_TO_EVALUATE)
-
-
-    def _process_data(self) -> pd.DataFrame:
-
-        signal_names = Settings.SIGNALS_TO_EVALUATE.copy()
-
-        # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
-        start_datetime = self._raw_data.get_header()['startdate']
-        sample_rate = self._raw_data.get_data_channels()['EMG'].get_sample_rate()
-        sample_length = len(self._raw_data.get_data_channels()['EMG'].get_signal())
-
-        # prepare DataFrame with DatetimeIndex
-        idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
-        df = pd.DataFrame(index=idx)
-
-        # add sleep profile to df
-        df['sleep_phase'], df['is_REM'] = self.create_sleep_profile_column(df.index, self._annotation_data)
-
-        # add artifacts to df
-        df['is_artifact'] = self.add_artifacts_to_df(idx, self._annotation_data, Settings.FLOW)
-
-        # cut off all samples before start of sleep_profile assessment if it exists
-        start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
-        df = df[start_of_first_full_sleep_phase:]
-
-        # find all epochs and miniepochs of global artifact-free REM sleep
-        df['artifact_free_rem_sleep_epoch'], df['artifact_free_rem_sleep_miniepoch'] = \
-            self.find_artifact_free_REM_sleep_epochs_and_miniepochs(df.index, df['is_artifact'].squeeze(),
-                                                                    df['is_REM'].squeeze())
-
-        # process human rating for artifact evaluation per signal and event
-        human_rating = self._annotation_data.human_rating[0][1]
-        human_rating_label_dict = human_rating.groupby('event').groups
-        logging.debug(human_rating_label_dict)
-
-        # TODO: remove human artifact data in final product
-        # process second human rating for artifact extraction per signal and event
-        human_rating2 = self._annotation_data.human_rating[1][1]
-        human_rating_label_dict2 = human_rating2.groupby('event').groups
-        logging.debug(human_rating_label_dict2)
-
-        # FOR EACH EMG SIGNAL:
-        for signal_type in signal_names.copy():
-            logging.debug(signal_type + ' start')
-
-            # Check if signal type exists in edf file
-            try:
-                signal_array = self._raw_data.get_data_channels()[signal_type].get_signal()
-            except KeyError:
-                signal_names.remove(signal_type)
-                continue
-
-            # Resample to 256 Hz
-            sample_rate = self._raw_data.get_data_channels()[signal_type].get_sample_rate()
-            df[signal_type] = DataframeCreation.signal_to_hz_rate_datetimeindexed_series(
-                Settings.RATE, sample_rate, signal_array, signal_type, start_datetime)[start_of_first_full_sleep_phase:]
-
-            # add signal type baseline column
-            df = self.add_signal_baseline_to_df(df, self._annotation_data, signal_type)
-
-            # add human rating boolean arrays
-            df = self.add_human_rating_for_signal_type_to_df(df, human_rating, human_rating_label_dict, signal_type)
-
-            # find increased activity
-            df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
-
-            df[signal_type + '_two_times_baseline_and_valid'] = \
-                df[signal_type + '_isGE2xBaseline'] & df['artifact_free_rem_sleep_miniepoch']
-            if Settings.HUMAN_ARTIFACTS:
-                df[signal_type + '_two_times_baseline_and_valid'] = \
-                    df[signal_type + '_two_times_baseline_and_valid'] & (~df[signal_type + '_human_artifact'])
-
-            df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
-
-            # find increased sustained activity
-            df = self.find_increased_sustained_activity(df, signal_type)
-
-            # find tonic epochs and adapt baseline if necessary
-            df = self.find_tonic_activity_and_adapt_baseline(df, signal_type)
-
-            # repeat search for sustained activity according to new baseline if necessary
-            if df[signal_type + '_tonic'].any():
-                df[signal_type + '_isGE2xBaseline'] = df[signal_type].abs() >= 2 * df[signal_type + '_baseline']
-                df[signal_type + '_two_times_baseline_and_valid'] = \
-                    df[signal_type + '_isGE2xBaseline'] & df['artifact_free_rem_sleep_miniepoch']
-                if Settings.HUMAN_ARTIFACTS:
-                    df[signal_type + '_two_times_baseline_and_valid'] = \
-                        df[signal_type + '_two_times_baseline_and_valid'] & (~df[signal_type + '_human_artifact'])
-                df = self.find_increased_activity(df, signal_type, Settings.COUNT_BASED_ACTIVITY)
-                df = self.find_increased_sustained_activity(df, signal_type)
-
-            # find phasic activity and miniepochs
-            df = self.find_phasic_activity_and_miniepochs(df, signal_type)
-
-            df = self.find_any_activity_and_miniepochs(df, signal_type)
-            logging.debug(signal_type + ' end')
-
-        # if VERBOSE:
-        #     dev_plots(df, self.output_path)
-        return df
-
-
-### NEW GRANULAR WORKFLOW
-
     def use_pickled_df_as_calculated_data(self, pickle_path: str) -> None:
         """ 'Setter' method for development. Sets the pickled pandas DataFrame at 'pickle_path' as
         'self._calculated_data'.
@@ -216,7 +86,8 @@ class PSG:
         """
         logging.debug('PSG starting to read input')
 
-        raw_data, annotation_data = ir.read_input(self._input_path, signals_to_evaluate,
+        raw_data, annotation_data = ir.read_input(directory_name=self._input_path,
+                                                  signals_to_load=signals_to_evaluate,
                                                   read_human_rating=read_human_rating)
 
         logging.debug('PSG finished reading input')
@@ -378,21 +249,208 @@ class PSG:
 
         return df
 
+    @staticmethod
+    def find_baselines(df_signals, signal_names, use_human_baselines=False, is_rem_series=None,
+                       artifact_free_rem_sleep_per_signal=None,
+                       annotation_data=None):
+        """
+        Finds baseline per signal. If human baseline is used, annotation_data must be given.
+        If human baseline is not used the respective baselines per signal are calculated. In this case is_rem_series and
+        artifact_free_REM_sleep_per_signal must exist.
+        :param df_signals:
+        :param signal_names:
+        :param use_human_baselines:
+        :param artifact_free_rem_sleep_per_signal:
+        :param annotation_data:
+        :return:
+        """
+
+        df_baselines = pd.DataFrame(index=df_signals.index)
+        df_baseline_artifacts = pd.DataFrame(index=df_signals.index)
+
+        if use_human_baselines:
+            for signal_name in signal_names:
+                # add signal type baseline column
+                df_baselines[signal_name + '_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
+                                                                                        signal_name)
+
+        else:
+
+            for signal_name in signal_names:
+
+                MIN_REM_BLOCK_LENGTH_IN_S = 150
+                MIN_BASELINE_VOLTAGE = 0.05
+                baseline_time_window_in_s = 30
+                baseline_artifact_window_in_s = 5
+
+                # find REM blocks
+                all_rem_sleep_numbered, min_rem_block, numbered_rem_blocks, small_rem_pieces = PSG.find_rem_blocks(
+                    MIN_REM_BLOCK_LENGTH_IN_S, is_rem_series)
+
+                # detect baseline artifacts
+                baseline_artifact = df_signals.loc[is_rem_series, signal_name].pow(2) \
+                    .rolling(str(baseline_artifact_window_in_s) + 'S',
+                             min_periods=Settings.RATE * baseline_artifact_window_in_s) \
+                    .mean() \
+                    .apply(np.sqrt) \
+                    .lt(MIN_BASELINE_VOLTAGE)
+
+                df_baseline_artifacts[signal_name + '_baseline_artifact'] = baseline_artifact
+                df_baseline_artifacts[signal_name + '_baseline_artifact'] = \
+                    df_baseline_artifacts[signal_name + '_baseline_artifact'].ffill().fillna(False)
+
+
+                block_baselines = pd.Series(index=range(1, all_rem_sleep_numbered.max() + 1))
+                while True:
+                    # calculate baseline per REM block
+                    for block_number in block_baselines.index.values:
+                        # find artifact-free REM block
+                        rem_block = df_signals.loc[all_rem_sleep_numbered == block_number, signal_name]
+                        artifact_free_rem_block = \
+                            rem_block.loc[artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']]
+                        artifact_free_rem_block = \
+                            artifact_free_rem_block[~df_baseline_artifacts[signal_name + '_baseline_artifact']]
+
+                        # find baseline
+                        baseline_in_rolling_window = artifact_free_rem_block.pow(2)\
+                            .rolling(str(baseline_time_window_in_s) + 'S',
+                                     min_periods=Settings.RATE * baseline_time_window_in_s)\
+                            .mean() \
+                            .apply(np.sqrt)
+
+                        min_baseline_for_block = np.nanmin(baseline_in_rolling_window)
+                        block_baselines[block_number] = min_baseline_for_block
+
+                    block_baselines.ffill().bfill()
+
+                    if block_baselines.isna().any():
+                        if baseline_time_window_in_s != 15:
+                            baseline_time_window_in_s = 15
+                            continue
+                        else:
+                            raise ErrorForDisplay(f'For signal {signal_name} a baseline cannot be calculated.')
+                    else:
+                        break
+
+                for block_number in block_baselines.index.values:
+                    rem_block = df_signals.loc[all_rem_sleep_numbered == block_number, signal_name]
+                    df_baselines.loc[rem_block.index, signal_name + '_baseline'] = block_baselines[block_number]
+
+
+                # ### PLOTTIES ###
+                #
+                # for signal_type in signal_names:
+                #     # add signal type baseline column
+                #     df_baselines[signal_type + '_human_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
+                #                                                                             signal_type)
+                #
+                #
+                # fig, ax = plt.subplots()
+                # # REM PHASES
+                # ax.fill_between(df_signals.index.values, is_rem_series * (-1000), is_rem_series * 1000,
+                #                 facecolor='lightblue', label="is_REM", alpha=0.7)
+                #
+                # ax.fill_between(df_signals.index.values,
+                #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+                #                 * (-750),
+                #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+                #                 * 750,
+                #                 facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
+                #
+                # ax.fill_between(df_signals.index.values, min_rem_block * (-25),
+                #                 min_rem_block * 25, alpha=0.7, facecolor='orange',
+                #                 edgecolor='darkgrey',
+                #                 label="min_rem_block", zorder=6)
+                #
+                # ax.fill_between(df_signals.index.values, small_rem_pieces * (-25),
+                #                 small_rem_pieces * 25, alpha=0.7, facecolor='pink',
+                #                 edgecolor='darkgrey',
+                #                 label="small_rem_pieces", zorder=6)
+                #
+                #
+                # # SIGNAL CHANNEL
+                # ax.plot(df_signals.index.values, df_signals[signal_name], c='#313133', label=signal_name, alpha=0.85, zorder=12)
+                # # ax.plot(df_signals.index.values, artifact_free_rem_block, c='deeppink', label='used_for_baseline', alpha=0.85, zorder=12)
+                # # ax.plot(df_signals.index.values, numbered_rem_blocks, c='deeppink', label='numbered_rem_blocks', alpha=0.85, zorder=4)
+                # # ax.plot(df_signals.index.values, all_rem_sleep_numbered * 10, c='lime', label='all_rem_sleep_numbered', alpha=0.85, zorder=13)
+                # ax.plot(df_baselines[signal_name + '_baseline'], c='mediumseagreen', label=signal_name + "_baseline", zorder=13)
+                # ax.plot(df_baselines[signal_name + '_baseline'] * (-1), c='mediumseagreen', zorder=13)
+                # ax.plot(df_baselines[signal_name + '_human_baseline'], c='blue', label=signal_name + " human baseline", zorder=13)
+                # ax.plot(df_baselines[signal_name + '_human_baseline'] * (-1), c='blue', zorder=13)
+                # # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
+                #
+                # # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
+                # ax.legend(loc='upper left', facecolor='white', framealpha=1)
+                #
+                # plt.show()
+
+                # find baseline per REM block
+
+        return df_baselines, df_baseline_artifacts
 
     @staticmethod
-    def detect_rbd_events(df_signals, artifact_free_rem_sleep_per_signal, signal_names, annotation_data):
+    def find_rem_blocks(MIN_REM_BLOCK_LENGTH_IN_S, is_rem_series):
+        continuuos_rem_ge_min_block_length = is_rem_series \
+            .groupby(is_rem_series.diff().ne(0).cumsum()) \
+            .transform('size') \
+            .ge(Settings.RATE * MIN_REM_BLOCK_LENGTH_IN_S)
+        min_rem_block = \
+            continuuos_rem_ge_min_block_length & is_rem_series
+        rem_block_counter = 0
+
+        def transform_to_rem_group_name(x):
+            if x.all():
+                nonlocal rem_block_counter
+                rem_block_counter += 1
+                return rem_block_counter
+            else:
+                return 0
+
+        numbered_rem_blocks = min_rem_block \
+            .groupby(min_rem_block.diff().ne(0).cumsum()) \
+            .transform(transform_to_rem_group_name)
+        small_rem_pieces = is_rem_series & ~min_rem_block
+
+        def assign_small_piece_to_rem_block(x):
+            if x.all():
+                nonlocal numbered_rem_blocks
+
+                first_index_of_piece = x.index[0]
+                last_index_of_piece = x.index[-1]
+
+                block_indices = numbered_rem_blocks[numbered_rem_blocks != 0].index
+
+                closest_to_beginning_of_piece = min(first_index_of_piece - block_indices, key=abs)
+                closest_to_end_of_piece = min(last_index_of_piece - block_indices, key=abs)
+
+                if closest_to_beginning_of_piece < closest_to_end_of_piece:
+                    block_number = numbered_rem_blocks[first_index_of_piece - closest_to_beginning_of_piece]
+                else:
+                    block_number = numbered_rem_blocks[last_index_of_piece - closest_to_end_of_piece]
+
+                return block_number
+
+            else:
+                return 0
+
+        small_rem_pieces_assigned_to_numbered_rem_blocks = small_rem_pieces \
+            .groupby(small_rem_pieces.diff().ne(0).cumsum()) \
+            .transform(assign_small_piece_to_rem_block)
+        all_rem_sleep_numbered = numbered_rem_blocks + small_rem_pieces_assigned_to_numbered_rem_blocks
+        return all_rem_sleep_numbered, min_rem_block, numbered_rem_blocks, small_rem_pieces
+
+    @staticmethod
+    def detect_rbd_events(df_signals, df_baselines, artifact_free_rem_sleep_per_signal, signal_names, annotation_data):
         """
         Detects RBD events in
 
-        :return: ``self`` instance of PSG
+        :return: Calculation results in DataFrame
         """
-        df = df_signals.copy()
+
+        df = pd.concat([df_signals, df_baselines], axis=1)
 
         # FOR EACH EMG SIGNAL:
         for signal_name in signal_names:
-
-            # add signal type baseline column
-            df = PSG.add_signal_baseline_to_df(df, annotation_data, signal_name)
 
             # find increased activity
             df[signal_name + '_isGE2xBaseline'] = df[signal_name].abs() >= 2 * df[signal_name + '_baseline']
@@ -819,13 +877,12 @@ class PSG:
         return df
 
     @staticmethod
-    def add_signal_baseline_to_df(df, annotation_data, signal_type):
+    def add_signal_baseline_to_df(df_signals, annotation_data, signal_type):
+        df_baseline = pd.DataFrame(index=df_signals.index)
         bl_start, bl_stop = annotation_data.baseline[BASELINE_NAME[signal_type]]
-        baseline = rms(df.loc[bl_start: bl_stop, signal_type])
-        df[signal_type + '_baseline'] = baseline
-        return df
-
-
+        baseline = rms(df_signals.loc[bl_start: bl_stop, signal_type])
+        df_baseline[signal_type + '_baseline'] = baseline
+        return df_baseline
 
 
 def rms(np_array_like):

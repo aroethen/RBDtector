@@ -5,7 +5,8 @@ class Settings:
     RATE = 256
     FREQ = '3.90625ms'
     FLOW = True
-    HUMAN_ARTIFACTS = True
+    HUMAN_ARTIFACTS = False
+    HUMAN_BASELINE = False
     FIND_ARTIFACTS = False
     COUNT_BASED_ACTIVITY = False
     MIN_SUSTAINED = 0.1
@@ -26,6 +27,7 @@ class Settings:
                    f'FREQ = {Settings.FREQ}\n' +
                    f'FLOW = {Settings.FLOW}\n' +
                    f'HUMAN_ARTIFACTS = {Settings.HUMAN_ARTIFACTS}\n' +
+                   f'HUMAN_BASELINE = {Settings.HUMAN_BASELINE}\n' +
                    f'FIND_ARTIFACTS = {Settings.FIND_ARTIFACTS}\n' +
                    f'COUNT_BASED_ACTIVITY = {Settings.COUNT_BASED_ACTIVITY}\n' +
                    f'MIN_SUSTAINED = {Settings.MIN_SUSTAINED}\n' +

@@ -48,8 +48,33 @@ class PSGController:
                 df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
                 signal_names)
 
-            rbd_events = psg.detect_rbd_events(df_signals, artifact_free_rem_sleep_per_signal,
-                                               signal_names, annotation_data)
+            if Settings.HUMAN_BASELINE:
+                df_baselines, _ = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
+                                                  use_human_baselines=True, annotation_data=annotation_data)
+            else:
+                df_baselines, df_baseline_artifacts = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
+                                                  use_human_baselines=False, is_rem_series=is_REM_series,
+                                                  artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
+                                                  annotation_data=annotation_data)
+
+                if signal_artifacts:
+                    for signal_name in signal_names:
+                        signal_artifacts[signal_name + '_signal_artifact'] = \
+                            signal_artifacts[signal_name + '_signal_artifact'] \
+                            | df_baseline_artifacts[signal_name + '_baseline_artifact']
+                else:
+                    signal_artifacts = pd.DataFrame(index=df_signals.index)
+                    for signal_name in signal_names:
+                        signal_artifacts[signal_name + '_signal_artifact'] = \
+                            df_baseline_artifacts[signal_name + '_baseline_artifact']
+
+                artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
+                    df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
+                    signal_names)
+
+            rbd_events = psg.detect_rbd_events(df_signals=df_signals, df_baselines=df_baselines,
+                                               artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
+                                               signal_names=signal_names, annotation_data=annotation_data)
 
             csv_writer.write_output(output_path,
                                     calculated_data=rbd_events,

@@ -18,7 +18,7 @@ from RBDtector.util.stats_settings import StatsSettings
 
 
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Profiling_test'):
-def generate_descripive_statistics(dirname='/media/SharedData/EMG/EMGs'):
+def generate_descripive_statistics(dirname='/media/SharedData/EMG/testifer'):
 # def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'):
 
     # Get a list of all directory paths, that contain human ratings

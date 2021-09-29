@@ -118,7 +118,7 @@ def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
     """
     logging.debug('Start reading .edf files')
 
-    signals, signal_headers, header = highlevel.read_edf(edf, ch_names=signals_to_load)   # TODO: Only load needed signals!!!
+    signals, signal_headers, header = highlevel.read_edf(edf, ch_names=signals_to_load)
 
     if len(signals) != len(signal_headers):
         raise ValueError('Input .edf file has a different amount of signal_headers and signals.')
