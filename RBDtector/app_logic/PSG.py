@@ -318,10 +318,13 @@ class PSG:
                             .mean() \
                             .apply(np.sqrt)
 
-                        min_baseline_for_block = np.nanmin(baseline_in_rolling_window)
+                        if (baseline_in_rolling_window is not None) and baseline_in_rolling_window.empty:
+                            min_baseline_for_block = np.nan
+                        else:
+                            min_baseline_for_block = np.nanmin(baseline_in_rolling_window)
                         block_baselines[block_number] = min_baseline_for_block
 
-                    block_baselines.ffill().bfill()
+                    block_baselines = block_baselines.ffill().bfill()
 
                     if block_baselines.isna().any():
                         if baseline_time_window_in_s != 15:

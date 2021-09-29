@@ -26,7 +26,7 @@ if __name__ == "__main__":
     logging.info('Starting GUI')
 
     if DEV:
-        path = '/media/SharedData/EMG/testifer'
+        path = '/media/SharedData/EMG/EMGs'
         # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/Testfiles/test_artifact_menge'
         dirlist = os.listdir(path)
         reading_problems = []
@@ -49,13 +49,14 @@ if __name__ == "__main__":
 
                 except (OSError, ErrorForDisplay) as e:
                     print(e)
+                    logging.error(e)
                     reading_problems.append(abs_child)
                     continue
 
         if len(reading_problems) != 0:
             print(f'These files could not be read: {reading_problems}')
 
-        # path = '/media/SharedData/EMG/testifer/test1'
+        # path = '/media/SharedData/EMG/EMGs/iRBD0067'
         # PSGController.run_rbd_detection(path, path)
         # data = PSG(path, path)
         # data.generate_output()
