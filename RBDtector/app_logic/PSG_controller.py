@@ -57,16 +57,16 @@ class PSGController:
                                                   artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                   annotation_data=annotation_data)
 
-                if signal_artifacts:
-                    for signal_name in signal_names:
-                        signal_artifacts[signal_name + '_signal_artifact'] = \
-                            signal_artifacts[signal_name + '_signal_artifact'] \
-                            | df_baseline_artifacts[signal_name + '_baseline_artifact']
-                else:
+                if signal_artifacts is None or signal_artifacts.empty:
                     signal_artifacts = pd.DataFrame(index=df_signals.index)
                     for signal_name in signal_names:
                         signal_artifacts[signal_name + '_signal_artifact'] = \
                             df_baseline_artifacts[signal_name + '_baseline_artifact']
+                else:
+                    for signal_name in signal_names:
+                        signal_artifacts[signal_name + '_signal_artifact'] = \
+                            signal_artifacts[signal_name + '_signal_artifact'] \
+                            | df_baseline_artifacts[signal_name + '_baseline_artifact']
 
                 artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
                     df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
