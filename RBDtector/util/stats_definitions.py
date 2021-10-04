@@ -5,7 +5,7 @@ Definitions as used in stats script.
 #: Maps file name pattern to file type
 FILE_FINDER = {
     'edf': '.edf',
-    'sleep_profile': 'Sleep profile',
+    'sleep_profile': ['Sleep profile'],
     'flow_events': 'Flow Events',
     'arousals': 'Classification Arousals',
     'baseline': 'Start-Baseline',

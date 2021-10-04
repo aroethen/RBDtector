@@ -2,6 +2,7 @@ import logging
 import os
 import pandas as pd
 
+from util.definitions import SLEEP_CLASSIFIERS
 from util.settings import Settings
 from app_logic.PSG import PSG
 from output import csv_writer
@@ -20,7 +21,7 @@ class PSGController:
             raw_data, annotation_data = psg.read_input(Settings.SIGNALS_TO_EVALUATE,
                                                        read_human_rating=Settings.HUMAN_ARTIFACTS)
 
-            df_signals, is_REM_series, is_global_artifact_series, signal_names = \
+            df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
                 psg.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE, Settings.FLOW)
 
             # find all (mini)epochs of global artifact-free REM sleep
@@ -28,9 +29,11 @@ class PSGController:
                 psg.find_artifact_free_REM_sleep_epochs_and_miniepochs(
                     idx=df_signals.index, artifact_signal_series=is_global_artifact_series, is_REM_series=is_REM_series)
 
-            human_signal_artifacts = None
-            detected_signal_artifacts = None
-            signal_artifacts = None
+
+            # FIND SIGNAL ARTIFACTS
+            signal_artifacts = pd.DataFrame(index=df_signals.index)
+            for signal_name in signal_names:
+                signal_artifacts[signal_name + '_signal_artifact'] = 0
 
             if Settings.HUMAN_ARTIFACTS:
                 human_signal_artifacts = psg.prepare_human_signal_artifacts(
@@ -44,10 +47,16 @@ class PSGController:
                 # TODO implement: detected_signal_artifacts = data.detect_signal_artifacts()
                 raise NotImplementedError
 
+            if Settings.SNORE:
+                if 'EMG' in signal_names:
+                    snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
+                    signal_artifacts['EMG_signal_artifact'] = signal_artifacts['EMG_signal_artifact'] | snore_series
+
             artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
                 df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
                 signal_names)
 
+            # FIND BASELINE
             if Settings.HUMAN_BASELINE:
                 df_baselines, _ = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
                                                   use_human_baselines=True, annotation_data=annotation_data)
@@ -57,16 +66,16 @@ class PSGController:
                                                   artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                   annotation_data=annotation_data)
 
-                if signal_artifacts is None or signal_artifacts.empty:
-                    signal_artifacts = pd.DataFrame(index=df_signals.index)
-                    for signal_name in signal_names:
-                        signal_artifacts[signal_name + '_signal_artifact'] = \
-                            df_baseline_artifacts[signal_name + '_baseline_artifact']
-                else:
-                    for signal_name in signal_names:
-                        signal_artifacts[signal_name + '_signal_artifact'] = \
-                            signal_artifacts[signal_name + '_signal_artifact'] \
-                            | df_baseline_artifacts[signal_name + '_baseline_artifact']
+                # if signal_artifacts is None or signal_artifacts.empty:
+                #     signal_artifacts = pd.DataFrame(index=df_signals.index)
+                #     for signal_name in signal_names:
+                #         signal_artifacts[signal_name + '_signal_artifact'] = \
+                #             df_baseline_artifacts[signal_name + '_baseline_artifact']
+                # else:
+                for signal_name in signal_names:
+                    signal_artifacts[signal_name + '_signal_artifact'] = \
+                        signal_artifacts[signal_name + '_signal_artifact'] \
+                        | df_baseline_artifacts[signal_name + '_baseline_artifact']
 
                 artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
                     df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,

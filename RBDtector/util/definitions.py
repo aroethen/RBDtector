@@ -23,17 +23,19 @@ BASELINE_NAME = {       #: Maps EMG channel name to string identifier of the bas
 }
 
 FILE_FINDER = {     #: Maps file type to its file name pattern used to find the file inside the input directory
-    'edf': '*.edf',
-    'sleep_profile': '*Sleep profile*',
-    'flow_events': '*Flow Events*',
-    'arousals': '*Classification Arousals*',
-    'baseline': '*Start-Baseline*',
-    'human_rating': '*Generic*'
+    'edf': ['*.edf'],
+    # TODO: REMOVE SNORE-VERSION FROM SCHLAFPROFIL
+    'sleep_profile': ['*Sleep profile*', '*Schlafprofil*SNORE*'],
+    'flow_events': ['*Flow Events*'],
+    'arousals': ['*Classification Arousals*', '*Klassifizierte Arousal*'],
+    'baseline': ['*Start-Baseline*'],
+    'human_rating': ['*Generic*']
 }
 
 SLEEP_CLASSIFIERS = {
     'artifact': 'A',
-    'REM':  'REM'
+    'REM':  'REM',
+    'SNORE': 'SNORE'
 }
 
 

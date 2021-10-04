@@ -132,7 +132,7 @@ class PSG:
         # add global artifacts to df
         df['is_global_artifact'] = PSG.add_artifacts_to_df(idx, annotation_data, assess_flow_events)
 
-        return df[signal_names], df['is_REM'], df['is_global_artifact'], signal_names
+        return df[signal_names], df['is_REM'], df['is_global_artifact'], signal_names, df['sleep_phase']
 
     @staticmethod
     def find_artifact_free_REM_sleep_epochs_and_miniepochs(idx: pd.DatetimeIndex,
@@ -331,6 +331,7 @@ class PSG:
                             baseline_time_window_in_s = 15
                             continue
                         else:
+
                             raise ErrorForDisplay(f'For signal {signal_name} a baseline cannot be calculated.')
                     else:
                         break
@@ -340,56 +341,53 @@ class PSG:
                     df_baselines.loc[rem_block.index, signal_name + '_baseline'] = block_baselines[block_number]
 
 
-                # ### PLOTTIES ###
-                #
-                # for signal_type in signal_names:
-                #     # add signal type baseline column
-                #     df_baselines[signal_type + '_human_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
-                #                                                                             signal_type)
-                #
-                #
-                # fig, ax = plt.subplots()
-                # # REM PHASES
-                # ax.fill_between(df_signals.index.values, is_rem_series * (-1000), is_rem_series * 1000,
-                #                 facecolor='lightblue', label="is_REM", alpha=0.7)
-                #
-                # ax.fill_between(df_signals.index.values,
-                #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
-                #                 * (-750),
-                #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
-                #                 * 750,
-                #                 facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
-                #
-                # ax.fill_between(df_signals.index.values, min_rem_block * (-25),
-                #                 min_rem_block * 25, alpha=0.7, facecolor='orange',
-                #                 edgecolor='darkgrey',
-                #                 label="min_rem_block", zorder=6)
-                #
-                # ax.fill_between(df_signals.index.values, small_rem_pieces * (-25),
-                #                 small_rem_pieces * 25, alpha=0.7, facecolor='pink',
-                #                 edgecolor='darkgrey',
-                #                 label="small_rem_pieces", zorder=6)
-                #
-                #
-                # # SIGNAL CHANNEL
-                # ax.plot(df_signals.index.values, df_signals[signal_name], c='#313133', label=signal_name, alpha=0.85, zorder=12)
-                # # ax.plot(df_signals.index.values, artifact_free_rem_block, c='deeppink', label='used_for_baseline', alpha=0.85, zorder=12)
-                # # ax.plot(df_signals.index.values, numbered_rem_blocks, c='deeppink', label='numbered_rem_blocks', alpha=0.85, zorder=4)
-                # # ax.plot(df_signals.index.values, all_rem_sleep_numbered * 10, c='lime', label='all_rem_sleep_numbered', alpha=0.85, zorder=13)
-                # ax.plot(df_baselines[signal_name + '_baseline'], c='mediumseagreen', label=signal_name + "_baseline", zorder=13)
-                # ax.plot(df_baselines[signal_name + '_baseline'] * (-1), c='mediumseagreen', zorder=13)
-                # ax.plot(df_baselines[signal_name + '_human_baseline'], c='blue', label=signal_name + " human baseline", zorder=13)
-                # ax.plot(df_baselines[signal_name + '_human_baseline'] * (-1), c='blue', zorder=13)
-                # # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
-                #
-                # # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
-                # ax.legend(loc='upper left', facecolor='white', framealpha=1)
-                #
-                # plt.show()
+                # PSG._brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals,
+                #                     is_rem_series, min_rem_block, signal_name, signal_names, small_rem_pieces)
 
-                # find baseline per REM block
+
 
         return df_baselines, df_baseline_artifacts
+
+    @staticmethod
+    def _brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals, is_rem_series,
+                        min_rem_block, signal_name, signal_names, small_rem_pieces):
+        ### PLOTTIES ###
+        for signal_type in signal_names:
+            # add signal type baseline column
+            df_baselines[signal_type + '_human_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
+                                                                                          signal_type)
+        fig, ax = plt.subplots()
+        # REM PHASES
+        ax.fill_between(df_signals.index.values, is_rem_series * (-1000), is_rem_series * 1000,
+                        facecolor='lightblue', label="is_REM", alpha=0.7)
+        ax.fill_between(df_signals.index.values,
+                        artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+                        * (-750),
+                        artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+                        * 750,
+                        facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
+        ax.fill_between(df_signals.index.values, min_rem_block * (-25),
+                        min_rem_block * 25, alpha=0.7, facecolor='orange',
+                        edgecolor='darkgrey',
+                        label="min_rem_block", zorder=6)
+        ax.fill_between(df_signals.index.values, small_rem_pieces * (-25),
+                        small_rem_pieces * 25, alpha=0.7, facecolor='pink',
+                        edgecolor='darkgrey',
+                        label="small_rem_pieces", zorder=6)
+        # SIGNAL CHANNEL
+        ax.plot(df_signals.index.values, df_signals[signal_name], c='#313133', label=signal_name, alpha=0.85, zorder=12)
+        # ax.plot(df_signals.index.values, artifact_free_rem_block, c='deeppink', label='used_for_baseline', alpha=0.85, zorder=12)
+        # ax.plot(df_signals.index.values, numbered_rem_blocks, c='deeppink', label='numbered_rem_blocks', alpha=0.85, zorder=4)
+        # ax.plot(df_signals.index.values, all_rem_sleep_numbered * 10, c='lime', label='all_rem_sleep_numbered', alpha=0.85, zorder=13)
+        # ax.plot(df_baselines[signal_name + '_baseline'], c='mediumseagreen', label=signal_name + "_baseline", zorder=13)
+        # ax.plot(df_baselines[signal_name + '_baseline'] * (-1), c='mediumseagreen', zorder=13)
+        ax.plot(df_baselines[signal_name + '_human_baseline'], c='blue', label=signal_name + " human baseline",
+                zorder=13)
+        ax.plot(df_baselines[signal_name + '_human_baseline'] * (-1), c='blue', zorder=13)
+        # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
+        # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
+        ax.legend(loc='upper left', facecolor='white', framealpha=1)
+        plt.show()
 
     @staticmethod
     def find_rem_blocks(MIN_REM_BLOCK_LENGTH_IN_S, is_rem_series):
@@ -454,6 +452,11 @@ class PSG:
 
         # FOR EACH EMG SIGNAL:
         for signal_name in signal_names:
+
+            # check existence of baseline
+            if not signal_name + '_baseline' in df.columns:
+                logging.info(f'For channel {signal_name} no baseline was found. Channel skipped.')
+                continue
 
             # find increased activity
             df[signal_name + '_isGE2xBaseline'] = df[signal_name].abs() >= 2 * df[signal_name + '_baseline']
@@ -580,7 +583,12 @@ class PSG:
         # and add it as column to dataframe
         resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
-        df['is_REM'] = df['sleep_phase'] == SLEEP_CLASSIFIERS['REM']
+        df['is_REM'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['REM'].lower()
+
+        if Settings.SNORE:
+            df['is_SNORE'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
+            df['is_REM'] = np.logical_or(df['is_REM'], df['is_SNORE'])
+
         return df['sleep_phase'], df['is_REM']
 
 

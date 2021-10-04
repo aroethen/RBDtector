@@ -74,8 +74,10 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
 
     logging.info('Absolute input directory: ' + abs_dir)
 
-    for file_type, file_identifier in FILE_FINDER.items():
-        tmp_files = glob.glob(os.path.join(abs_dir, file_identifier))
+    for file_type, file_identifiers in FILE_FINDER.items():
+        tmp_files = []
+        for file_identifier in file_identifiers:
+            tmp_files.extend(glob.glob(os.path.join(abs_dir, file_identifier)))
         if len(tmp_files) == 1:
             if file_type == 'human_rating':
                 files[file_type] = tmp_files
@@ -94,7 +96,7 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
                 logging.info('{}: {}'.format(file_type, files[file_type]))
             else:
                 raise ErrorForDisplay(
-                    'Too many files of type {} in input directory ({})'.format(file_identifier, abs_dir)
+                    'Too many files of type {} in input directory ({})'.format(file_identifiers, abs_dir)
                 )
 
     if 'edf' not in files:

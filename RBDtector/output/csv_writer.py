@@ -33,8 +33,11 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
             for category in ['phasic', 'any']:
                 miniepoch_column_names.append('{}_{}_miniepochs'.format(signal, category))
 
-        comparison_df = calculated_data[miniepoch_column_names]
-        comparison_df.to_pickle(os.path.join(output_path, 'comparison_pickle'))
+        try:
+            comparison_df = calculated_data[miniepoch_column_names]
+            comparison_df.to_pickle(os.path.join(output_path, 'comparison_pickle'))
+        except KeyError:
+            logging.info("No calculated data exists. This may be due to no viable REM sleep phases in all channels.")
 
         # df = calculated_data.copy()
         # df_out = pd.DataFrame()
@@ -85,10 +88,12 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
         raise e
 
 
-
 def write_exact_events_csv(calculated_data, output_path, signal_names):
     rbdtector_events = []
     for signal in signal_names:
+        if (not signal + '_phasic' in calculated_data.columns) or (not signal + '_tonic' in calculated_data.columns):
+            logging.info(f'No calculations for channel {signal} found. Skipped in output.')
+            continue
         for category in ['tonic', 'phasic', 'any']:
             cat = category
             if category == 'any':
