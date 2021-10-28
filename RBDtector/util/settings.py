@@ -5,6 +5,7 @@ class Settings:
     RATE = 256
     FREQ = '3.90625ms'
     FLOW = True
+
     HUMAN_ARTIFACTS = False
     HUMAN_BASELINE = False
     FIND_ARTIFACTS = False
@@ -17,9 +18,12 @@ class Settings:
     WITH_OFFSET = True
     OFFSET_SIZE = '15L'
     LOW_PASS = 12
+
     VERBOSE = True
     SHOW_PLOT = True
+
     SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
+    # SIGNALS_TO_EVALUATE = ['EMG', ]
 
     @classmethod
     def to_string(cls):

@@ -11,9 +11,11 @@ from util.definitions import HUMAN_RATING_LABEL, EVENT_TYPE, definitions_as_stri
 from util.settings import Settings
 
 
-def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] = None,
+def write_output(output_path,
+                 subject_name,
                  calculated_data: pd.DataFrame = None,
-                 signal_names: List[str] = None):
+                 signal_names: List[str] = None
+                 ):
     """
     Writes calculated annotations and human rater annotations into csv and xlsx tables for further evaluation 
     and for displaying the respective annotations with the third-party application EDFBrowser.
@@ -39,41 +41,9 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
         except KeyError:
             logging.info("No calculated data exists. This may be due to no viable REM sleep phases in all channels.")
 
-        # df = calculated_data.copy()
-        # df_out = pd.DataFrame()
-        # df_out['rater'] = pd.Series('RBDtector')
-        # df_out['rem_sleep_duration_in_s'] = pd.Series(df['is_REM'].sum() / 256)
-        # df_out['artifact_free_rem_sleep_in_s'] = pd.Series(df['artifact_free_rem_sleep_miniepoch'].sum() / 256)
-        # matched_human_miniepochs = {}
-        #
-        # for signal in signal_names:
-        #     start_of_one_signal = datetime.now()
-        #     matched_human_miniepochs[signal] = (df[signal + '_human_phasic_miniepochs'] & df[signal + '_phasic_miniepochs'])\
-        #                                            .sum() / (256 * 3)
-        #
-        #     for category in ['tonic', 'phasic', 'any']:
-        #         for rater in ['']:
-        #             if category == 'tonic':
-        #                 df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] = pd.Series(
-        #                     df[signal + '{}_{}'.format(rater, category)].sum() / 256
-        #                 )
-        #
-        #                 df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] = pd.Series(
-        #                     df_out['{}_{}{}_in_seconds'.format(signal, category, rater)] / 30
-        #                 )
-        #
-        #             else:
-        #                 df_out['{}_{}{}_in_number_of_epochs'.format(signal, category, rater)] = pd.Series(
-        #                     df[signal + '{}_{}_miniepochs'.format(rater, category)].sum() / (256 * 3)
-        #                 )
-        #
-        # with open(os.path.join(output_path, 'matched_human_phasic_miniepochs.csv'), 'w') as f:
-        #     w = csv.DictWriter(f, matched_human_miniepochs.keys())
-        #     w.writeheader()
-        #     w.writerow(matched_human_miniepochs)
-        #
-        # df_out.info()
-        # df_out.to_csv(os.path.join(output_path, 'csv_stats_output.csv'), index=False)
+        df_out = create_result_df(calculated_data, signal_names, subject_name)
+
+        df_out.transpose().to_excel(os.path.join(output_path, f'RBDtector_results_{datetime.now()}.xlsx'))
 
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
             f.write(f"Date: {datetime.now()}"
@@ -81,11 +51,113 @@ def write_output(output_path, human_rating: Tuple[Dict[str, str], pd.DataFrame] 
                     f"{definitions_as_string()}"
                     )
 
+        return df_out
+
     except BaseException as e:
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
             f.write(f"Error in last execution at {datetime.now()}. All current output files are invalid.\n"
                     f"Occurred error: {e}")
         raise e
+
+
+def create_result_df(calculated_data, signal_names, subject_name):
+
+    df = calculated_data.copy()
+
+    # create Multiindex
+    table_header1 = pd.Series(name=('', 'Subject ID'), dtype='str')
+    table_header2 = pd.Series(name=('Global', 'Global_REM_MiniEpochs'), dtype='int')
+    table_header3 = pd.Series(name=('Global', 'Global_REM_MacroEpochs'), dtype='int')
+    table_header4 = pd.Series(name=('Global', 'Global_REM_MiniEpochs_WO-Artifacts'), dtype='int')
+    table_header5 = pd.Series(name=('Global', 'Global_REM_MacroEpochs_WO-Artifacts'), dtype='int')
+
+    new_order = ['', 'Global']
+    new_order.extend(signal_names)
+
+    factors = (
+        signal_names,
+        (
+            'REM_MiniEpochs_WO-Artifacts', 'REM_MacroEpochs_WO-Artifacts',
+            'tonic_Abs', 'tonic_%',
+            'phasic_Abs', 'phasic_%',
+            # 'phasic_Average-Max-Ampli', 'phasic_Average-Mean-Ampli',
+            'any_Abs', 'any_%',
+        )
+    )
+
+    multiindex = pd.MultiIndex.from_product(factors, names=["Signal", 'Description'])
+    multiindex = pd.MultiIndex.from_arrays([
+        multiindex.get_level_values(0),
+        multiindex.get_level_values(0).map(HUMAN_RATING_LABEL) + '_' + multiindex.get_level_values(1)])
+
+    # create result df
+    df_out = pd.DataFrame(index=multiindex) \
+        .append([table_header1, table_header2, table_header3, table_header4, table_header5]) \
+        .reindex(new_order, level=0)
+
+    # fill in results
+    idx = pd.IndexSlice
+
+    df_out.loc[idx[:, 'Subject ID'], subject_name] = subject_name
+
+    df_out.loc[idx['Global', 'Global_REM_MiniEpochs'], subject_name] = df['is_REM'].sum() / (Settings.RATE * 3)
+    df_out.loc[idx['Global', 'Global_REM_MacroEpochs'], subject_name] = df['is_REM'].sum() / (Settings.RATE * 30)
+    df_out.loc[idx['Global', 'Global_REM_MiniEpochs_WO-Artifacts'], subject_name] = \
+        df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
+    df_out.loc[idx['Global', 'Global_REM_MacroEpochs_WO-Artifacts'], subject_name] = \
+        df['artifact_free_rem_sleep_epoch'].sum() / (Settings.RATE * 30)
+
+    for signal_name in signal_names:
+
+        # check existence of calculations
+        if not signal_name + '_phasic_miniepochs' in df.columns:
+            continue
+
+        df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MiniEpochs_WO-Artifacts'],
+                   subject_name] = df[signal_name + '_artifact_free_rem_sleep_miniepoch'].sum() \
+                                   / (Settings.RATE * 3)
+
+        df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MacroEpochs_WO-Artifacts'],
+                   subject_name] = df[signal_name + '_artifact_free_rem_sleep_epoch'].sum() \
+                                   / (Settings.RATE * 30)
+
+        for category in ['tonic', 'phasic', 'any']:
+
+            if category == 'tonic':
+                epoch_length = 30
+                miniepochs = ''
+                epoch_count = \
+                    df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MacroEpochs_WO-Artifacts'],
+                               subject_name]
+            else:
+                epoch_length = 3
+                miniepochs = '_miniepochs'
+                epoch_count = \
+                    df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MiniEpochs_WO-Artifacts'],
+                               subject_name]
+
+            df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs'],
+                       subject_name] = df[signal_name + '_' + category + miniepochs].sum() \
+                                       / (Settings.RATE * epoch_length)
+            abs_count = \
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs']
+                , subject_name]
+
+            df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_%'],
+                       subject_name] = (abs_count * 100) / epoch_count
+
+        # phasic_avg = (df.loc[df[signal_name + '_phasic_miniepochs'], signal_name]) \
+        #     .resample('3s') \
+        #     .mean()
+        #
+        # df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Average-Max-Ampli'], subject_name] \
+        #     = phasic_avg.max()
+        #
+        # df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Average-Mean-Ampli'], subject_name] \
+        #     = phasic_avg.mean()
+        # TODO: Rework, so only the phasic bouts are considered (not the whole miniepoch)
+
+    return df_out
 
 
 def write_exact_events_csv(calculated_data, output_path, signal_names):

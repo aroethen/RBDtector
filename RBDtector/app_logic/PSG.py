@@ -87,7 +87,7 @@ class PSG:
         logging.debug('PSG starting to read input')
 
         raw_data, annotation_data = ir.read_input(directory_name=self._input_path,
-                                                  signals_to_load=signals_to_evaluate,
+                                                  signals_to_load=signals_to_evaluate.copy(),
                                                   read_human_rating=read_human_rating)
 
         logging.debug('PSG finished reading input')
@@ -96,6 +96,8 @@ class PSG:
 
     @staticmethod
     def prepare_evaluation(raw_data, annotation_data, signal_names, assess_flow_events):
+
+        signal_names = signal_names.copy()
 
         # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
         start_datetime = raw_data.get_header()['startdate']
@@ -195,7 +197,7 @@ class PSG:
             human_rating_label_dict2 = human_rating2.groupby('event').groups
             logging.debug(human_rating_label_dict2)
         except IndexError as e:
-            logging.log("Only one human rater file found.")
+            logging.info("Only one human rater file found.")
             human_rating2 = None
 
         df_artifacts = pd.DataFrame(index=index)
@@ -331,10 +333,14 @@ class PSG:
                             baseline_time_window_in_s = 15
                             continue
                         else:
-
-                            raise ErrorForDisplay(f'For signal {signal_name} a baseline cannot be calculated.')
+                            logging.info(f'For signal {signal_name} a baseline cannot be calculated.')
+                            block_baselines = None
+                            break
                     else:
                         break
+
+                if block_baselines is None:
+                    continue
 
                 for block_number in block_baselines.index.values:
                     rem_block = df_signals.loc[all_rem_sleep_numbered == block_number, signal_name]
@@ -343,7 +349,6 @@ class PSG:
 
                 # PSG._brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals,
                 #                     is_rem_series, min_rem_block, signal_name, signal_names, small_rem_pieces)
-
 
 
         return df_baselines, df_baseline_artifacts

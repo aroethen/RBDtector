@@ -17,6 +17,7 @@ from data_structures.raw_data_channel import RawDataChannel
 from data_structures.annotation_data import AnnotationData
 from util.error_for_display import ErrorForDisplay
 from util.definitions import FILE_FINDER
+from util.settings import Settings
 
 
 def read_input(directory_name: str, signals_to_load: List[str] = None,
@@ -39,7 +40,7 @@ def read_input(directory_name: str, signals_to_load: List[str] = None,
     filenames = __find_files(directory_name)
 
     if read_edf:
-        raw_data: RawData = __read_edf(filenames['edf'], signals_to_load)
+        raw_data: RawData = __read_edf(filenames['edf'], signals_to_load.copy())
         filenames.pop('edf')
     else:
         raw_data = None
@@ -78,6 +79,13 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
         tmp_files = []
         for file_identifier in file_identifiers:
             tmp_files.extend(glob.glob(os.path.join(abs_dir, file_identifier)))
+
+        if file_type == 'sleep_profile':
+            if len(tmp_files) == 2:
+                if Settings.SNORE:
+                    tmp_files = [file_str for file_str in tmp_files if 'SNORE' in file_str]
+                else:
+                    tmp_files = [file_str for file_str in tmp_files if 'SNORE' not in file_str]
         if len(tmp_files) == 1:
             if file_type == 'human_rating':
                 files[file_type] = tmp_files
@@ -120,7 +128,7 @@ def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
     """
     logging.debug('Start reading .edf files')
 
-    signals, signal_headers, header = highlevel.read_edf(edf, ch_names=signals_to_load)
+    signals, signal_headers, header = highlevel.read_edf(edf, ch_names=signals_to_load.copy())
 
     if len(signals) != len(signal_headers):
         raise ValueError('Input .edf file has a different amount of signal_headers and signals.')

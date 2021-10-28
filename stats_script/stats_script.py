@@ -277,7 +277,7 @@ def find_all_human_rated_directories(directory_name) -> List[str]:
                 found_second_human_rater_file = True
             elif FILE_FINDER['human_rating'] in filename:
                 found_human_rater_file = True
-            elif FILE_FINDER['sleep_profile'] in filename:
+            elif any(sleep_profile_substring in filename for sleep_profile_substring in FILE_FINDER['sleep_profile']):
                 found_sleep_profile = True
 
         if (not (found_human_rater_file or found_second_human_rater_file)) or (not found_sleep_profile):

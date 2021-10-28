@@ -18,11 +18,11 @@ class PSGController:
         if Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
             psg.use_pickled_df_as_calculated_data(os.path.join(input_path, 'pickledDF'))
         else:
-            raw_data, annotation_data = psg.read_input(Settings.SIGNALS_TO_EVALUATE,
+            raw_data, annotation_data = psg.read_input(Settings.SIGNALS_TO_EVALUATE.copy(),
                                                        read_human_rating=Settings.HUMAN_ARTIFACTS)
 
             df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
-                psg.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE, Settings.FLOW)
+                psg.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE.copy(), Settings.FLOW)
 
             # find all (mini)epochs of global artifact-free REM sleep
             is_global_artifact_free_rem_sleep_epoch_series, is_global_artifact_free_rem_sleep_miniepoch_series = \
@@ -66,12 +66,6 @@ class PSGController:
                                                   artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                   annotation_data=annotation_data)
 
-                # if signal_artifacts is None or signal_artifacts.empty:
-                #     signal_artifacts = pd.DataFrame(index=df_signals.index)
-                #     for signal_name in signal_names:
-                #         signal_artifacts[signal_name + '_signal_artifact'] = \
-                #             df_baseline_artifacts[signal_name + '_baseline_artifact']
-                # else:
                 for signal_name in signal_names:
                     signal_artifacts[signal_name + '_signal_artifact'] = \
                         signal_artifacts[signal_name + '_signal_artifact'] \
@@ -85,8 +79,15 @@ class PSGController:
                                                artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                signal_names=signal_names, annotation_data=annotation_data)
 
-            csv_writer.write_output(output_path,
-                                    calculated_data=rbd_events,
+            df_out = csv_writer.write_output(output_path,
+                                    subject_name=os.path.basename(input_path),
+                                    calculated_data=pd.concat([rbd_events, is_REM_series,
+                                                               is_global_artifact_free_rem_sleep_epoch_series,
+                                                               is_global_artifact_free_rem_sleep_miniepoch_series,
+                                                               artifact_free_rem_sleep_per_signal],
+                                                              axis=1, verify_integrity=True),
                                     signal_names=signal_names)
+
+            return df_out
 
 
