@@ -1,3 +1,5 @@
+from itertools import chain, combinations
+
 import pandas as pd
 import numpy as np
 import os
@@ -14,7 +16,8 @@ from util.settings import Settings
 def write_output(output_path,
                  subject_name,
                  calculated_data: pd.DataFrame = None,
-                 signal_names: List[str] = None
+                 signal_names: List[str] = None,
+                 amplitudes_and_durations: Dict = None
                  ):
     """
     Writes calculated annotations and human rater annotations into csv and xlsx tables for further evaluation 
@@ -41,7 +44,7 @@ def write_output(output_path,
         except KeyError:
             logging.info("No calculated data exists. This may be due to no viable REM sleep phases in all channels.")
 
-        df_out = create_result_df(calculated_data, signal_names, subject_name)
+        df_out = create_result_df(calculated_data, signal_names, subject_name, amplitudes_and_durations)
 
         df_out.transpose().to_excel(os.path.join(output_path, f'RBDtector_results_{datetime.now()}.xlsx'))
 
@@ -50,6 +53,10 @@ def write_output(output_path,
                     f"{Settings.to_string()}"
                     f"{definitions_as_string()}"
                     )
+
+        #
+        #
+        # df_channel_combinations = create_channel_combinations_df(calculated_data, signal_names, subject_name)
 
         return df_out
 
@@ -60,7 +67,22 @@ def write_output(output_path,
         raise e
 
 
-def create_result_df(calculated_data, signal_names, subject_name):
+
+# def create_channel_combinations_df(calculated_data, signal_names, subject_name):
+#     df = calculated_data.copy()
+#
+#     # create powerset of channel combinations
+#     qualities = {'ChinTonic', 'ChinPhasic', 'ChinAny',
+#                  'ArmsTonic', 'ArmsPhasic', 'ArmsAny',
+#                  'LegsTonic', 'LegsPhasic', 'LegsAny'
+#                  }
+#     s = list(qualities)
+#     all_combinations = chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+#
+
+
+
+def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and_durations):
 
     df = calculated_data.copy()
 
@@ -80,8 +102,9 @@ def create_result_df(calculated_data, signal_names, subject_name):
             'REM_MiniEpochs_WO-Artifacts', 'REM_MacroEpochs_WO-Artifacts',
             'tonic_Abs', 'tonic_%',
             'phasic_Abs', 'phasic_%',
-            # 'phasic_Average-Max-Ampli', 'phasic_Average-Mean-Ampli',
             'any_Abs', 'any_%',
+            'phasic_Max-Mean-Ampli', 'phasic_Average-Duration',
+            'non-tonic_Max-Mean-Ampli', 'non-tonic_Average-Duration'
         )
     )
 
@@ -140,22 +163,25 @@ def create_result_df(calculated_data, signal_names, subject_name):
                        subject_name] = df[signal_name + '_' + category + miniepochs].sum() \
                                        / (Settings.RATE * epoch_length)
             abs_count = \
-                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs']
-                , subject_name]
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs'],
+                subject_name]
 
             df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_%'],
                        subject_name] = (abs_count * 100) / epoch_count
 
-        # phasic_avg = (df.loc[df[signal_name + '_phasic_miniepochs'], signal_name]) \
-        #     .resample('3s') \
-        #     .mean()
-        #
-        # df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Average-Max-Ampli'], subject_name] \
-        #     = phasic_avg.max()
-        #
-        # df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Average-Mean-Ampli'], subject_name] \
-        #     = phasic_avg.mean()
-        # TODO: Rework, so only the phasic bouts are considered (not the whole miniepoch)
+            if category == 'phasic':
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Max-Mean-Ampli'],
+                           subject_name] = amplitudes_and_durations[signal_name]['phasic']['max_mean']
+
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Average-Duration'],
+                           subject_name] = amplitudes_and_durations[signal_name]['phasic']['mean_duration']
+
+            elif category == 'any':
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_non-tonic_Max-Mean-Ampli'],
+                           subject_name] = amplitudes_and_durations[signal_name]['non-tonic']['max_mean']
+
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_non-tonic_Average-Duration'],
+                           subject_name] = amplitudes_and_durations[signal_name]['non-tonic']['mean_duration']
 
     return df_out
 

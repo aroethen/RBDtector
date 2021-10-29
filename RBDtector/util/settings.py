@@ -1,7 +1,7 @@
 
 class Settings:
-    DEV = False
-    DEV_READ_PICKLE_INSTEAD_OF_EDF = False
+    DEV = True
+    DEV_READ_PICKLE_INSTEAD_OF_EDF = True
     RATE = 256
     FREQ = '3.90625ms'
     FLOW = True

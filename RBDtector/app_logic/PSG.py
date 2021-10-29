@@ -307,7 +307,7 @@ class PSG:
                     # calculate baseline per REM block
                     for block_number in block_baselines.index.values:
                         # find artifact-free REM block
-                        rem_block = df_signals.loc[all_rem_sleep_numbered == block_number, signal_name]
+                        rem_block = df_signals.loc[numbered_rem_blocks == block_number, signal_name]
                         artifact_free_rem_block = \
                             rem_block.loc[artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']]
                         artifact_free_rem_block = \
@@ -350,100 +350,7 @@ class PSG:
                 # PSG._brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals,
                 #                     is_rem_series, min_rem_block, signal_name, signal_names, small_rem_pieces)
 
-
         return df_baselines, df_baseline_artifacts
-
-    @staticmethod
-    def _brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals, is_rem_series,
-                        min_rem_block, signal_name, signal_names, small_rem_pieces):
-        ### PLOTTIES ###
-        for signal_type in signal_names:
-            # add signal type baseline column
-            df_baselines[signal_type + '_human_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
-                                                                                          signal_type)
-        fig, ax = plt.subplots()
-        # REM PHASES
-        ax.fill_between(df_signals.index.values, is_rem_series * (-1000), is_rem_series * 1000,
-                        facecolor='lightblue', label="is_REM", alpha=0.7)
-        ax.fill_between(df_signals.index.values,
-                        artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
-                        * (-750),
-                        artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
-                        * 750,
-                        facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
-        ax.fill_between(df_signals.index.values, min_rem_block * (-25),
-                        min_rem_block * 25, alpha=0.7, facecolor='orange',
-                        edgecolor='darkgrey',
-                        label="min_rem_block", zorder=6)
-        ax.fill_between(df_signals.index.values, small_rem_pieces * (-25),
-                        small_rem_pieces * 25, alpha=0.7, facecolor='pink',
-                        edgecolor='darkgrey',
-                        label="small_rem_pieces", zorder=6)
-        # SIGNAL CHANNEL
-        ax.plot(df_signals.index.values, df_signals[signal_name], c='#313133', label=signal_name, alpha=0.85, zorder=12)
-        # ax.plot(df_signals.index.values, artifact_free_rem_block, c='deeppink', label='used_for_baseline', alpha=0.85, zorder=12)
-        # ax.plot(df_signals.index.values, numbered_rem_blocks, c='deeppink', label='numbered_rem_blocks', alpha=0.85, zorder=4)
-        # ax.plot(df_signals.index.values, all_rem_sleep_numbered * 10, c='lime', label='all_rem_sleep_numbered', alpha=0.85, zorder=13)
-        # ax.plot(df_baselines[signal_name + '_baseline'], c='mediumseagreen', label=signal_name + "_baseline", zorder=13)
-        # ax.plot(df_baselines[signal_name + '_baseline'] * (-1), c='mediumseagreen', zorder=13)
-        ax.plot(df_baselines[signal_name + '_human_baseline'], c='blue', label=signal_name + " human baseline",
-                zorder=13)
-        ax.plot(df_baselines[signal_name + '_human_baseline'] * (-1), c='blue', zorder=13)
-        # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
-        # ax.plot(df['diffs'] * 10, c='deeppink', label="Diffs", zorder=4)
-        ax.legend(loc='upper left', facecolor='white', framealpha=1)
-        plt.show()
-
-    @staticmethod
-    def find_rem_blocks(MIN_REM_BLOCK_LENGTH_IN_S, is_rem_series):
-        continuuos_rem_ge_min_block_length = is_rem_series \
-            .groupby(is_rem_series.diff().ne(0).cumsum()) \
-            .transform('size') \
-            .ge(Settings.RATE * MIN_REM_BLOCK_LENGTH_IN_S)
-        min_rem_block = \
-            continuuos_rem_ge_min_block_length & is_rem_series
-        rem_block_counter = 0
-
-        def transform_to_rem_group_name(x):
-            if x.all():
-                nonlocal rem_block_counter
-                rem_block_counter += 1
-                return rem_block_counter
-            else:
-                return 0
-
-        numbered_rem_blocks = min_rem_block \
-            .groupby(min_rem_block.diff().ne(0).cumsum()) \
-            .transform(transform_to_rem_group_name)
-        small_rem_pieces = is_rem_series & ~min_rem_block
-
-        def assign_small_piece_to_rem_block(x):
-            if x.all():
-                nonlocal numbered_rem_blocks
-
-                first_index_of_piece = x.index[0]
-                last_index_of_piece = x.index[-1]
-
-                block_indices = numbered_rem_blocks[numbered_rem_blocks != 0].index
-
-                closest_to_beginning_of_piece = min(first_index_of_piece - block_indices, key=abs)
-                closest_to_end_of_piece = min(last_index_of_piece - block_indices, key=abs)
-
-                if closest_to_beginning_of_piece < closest_to_end_of_piece:
-                    block_number = numbered_rem_blocks[first_index_of_piece - closest_to_beginning_of_piece]
-                else:
-                    block_number = numbered_rem_blocks[last_index_of_piece - closest_to_end_of_piece]
-
-                return block_number
-
-            else:
-                return 0
-
-        small_rem_pieces_assigned_to_numbered_rem_blocks = small_rem_pieces \
-            .groupby(small_rem_pieces.diff().ne(0).cumsum()) \
-            .transform(assign_small_piece_to_rem_block)
-        all_rem_sleep_numbered = numbered_rem_blocks + small_rem_pieces_assigned_to_numbered_rem_blocks
-        return all_rem_sleep_numbered, min_rem_block, numbered_rem_blocks, small_rem_pieces
 
     @staticmethod
     def detect_rbd_events(df_signals, df_baselines, artifact_free_rem_sleep_per_signal, signal_names, annotation_data):
@@ -454,9 +361,11 @@ class PSG:
         """
 
         df = pd.concat([df_signals, df_baselines], axis=1)
+        amplitudes_and_durations_dict = {}
 
         # FOR EACH EMG SIGNAL:
         for signal_name in signal_names:
+            amplitudes_and_durations_dict[signal_name] = {}
 
             # check existence of baseline
             if not signal_name + '_baseline' in df.columns:
@@ -495,17 +404,17 @@ class PSG:
                 df = PSG.find_increased_sustained_activity(df, signal_name)
 
             # find phasic activity and miniepochs
-            df = PSG.find_phasic_activity_and_miniepochs(df, signal_name)
+            df, amplitudes_and_durations_dict[signal_name]['phasic'] = PSG.find_phasic_activity_and_miniepochs(df, signal_name)
             df[signal_name + '_phasic_miniepochs'] = np.logical_and(
                 df[signal_name + '_phasic_miniepochs'],
                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch'])
 
-            df = PSG.find_any_activity_and_miniepochs(df, signal_name)
+            df, amplitudes_and_durations_dict[signal_name]['non-tonic'] = PSG.find_any_activity_and_miniepochs(df, signal_name)
             df[signal_name + '_any_miniepochs'] = np.logical_and(
                 df[signal_name + '_any_miniepochs'],
                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch'])
 
-        return df
+        return df, amplitudes_and_durations_dict
 
 ### Modernized internal methods
     @staticmethod
@@ -608,6 +517,7 @@ class PSG:
         :return: original df with added columns df[signal_type + '_any'] and
                 df[signal_type + '_any_miniepochs']
         """
+        idx = pd.IndexSlice
 
         # find 'any' activity
         df[signal_type + '_any'] = df[signal_type + '_sustained_activity'] | df[signal_type + '_tonic']
@@ -620,7 +530,37 @@ class PSG:
         df[signal_type + '_any_miniepochs'] = any_in_3s_miniepoch
         df[signal_type + '_any_miniepochs'] = df[signal_type + '_any_miniepochs'].ffill()
 
-        return df
+        # find non-tonic max amplitudes
+        abs_normalized_signal = (df[signal_type] / df[signal_type + '_baseline']) \
+            .squeeze() \
+            .abs() \
+            .rename('Absolute Normalized Signal')
+
+        non_tonic_sustained_activity = df[signal_type + '_sustained_activity'] & ~(df[signal_type + '_tonic'])
+
+        max_amplitudes = pd.concat([non_tonic_sustained_activity, abs_normalized_signal], axis=1) \
+            .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
+            ['Absolute Normalized Signal'] \
+            .max()
+        max_amplitudes = max_amplitudes.loc[idx[:, True]]
+        max_mean = max_amplitudes.mean()
+
+        print('===')
+        print(max_mean)
+
+        # find mean non-tonic duration
+        duration = non_tonic_sustained_activity \
+            .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
+            .size() \
+            .divide(Settings.RATE)
+        duration = duration.loc[idx[:, True]]
+        mean_duration = duration.mean()
+
+        print('---')
+        print(mean_duration)
+        print('===')
+
+        return df, {'max_mean': max_mean, 'mean_duration': mean_duration}
 
     @staticmethod
     def find_phasic_activity_and_miniepochs(df, signal_type):
@@ -632,6 +572,7 @@ class PSG:
         :return: original df with added columns df[signal_type + '_phasic'] and
                 df[signal_type + '_phasic_miniepochs']
         """
+        idx = pd.IndexSlice
 
         # find phasic activity
         continuous_phasic_sustained_activity = df[signal_type + '_sustained_activity'] \
@@ -639,6 +580,27 @@ class PSG:
             .transform('size') \
             .le(Settings.RATE * 5)
         df[signal_type + '_phasic'] = continuous_phasic_sustained_activity & df[signal_type + '_sustained_activity']
+
+        # find phasic max amplitudes
+        abs_normalized_signal = (df[signal_type] / df[signal_type + '_baseline'])\
+            .squeeze()\
+            .abs()\
+            .rename('Absolute Normalized Signal')
+
+        max_amplitudes = pd.concat([df[signal_type + '_phasic'], abs_normalized_signal], axis=1)\
+            .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
+            ['Absolute Normalized Signal']\
+            .max()
+        max_amplitudes = max_amplitudes.loc[idx[:, True]]
+        max_mean = max_amplitudes.mean()
+
+        # find mean phasic duration
+        duration = df[signal_type + '_phasic']\
+            .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
+            .size()\
+            .divide(Settings.RATE)
+        duration = duration.loc[idx[:, True]]
+        mean_duration = duration.mean()
 
         # find phasic miniepochs
         phasic_in_3s_miniepoch = df[signal_type + '_phasic'].squeeze() \
@@ -648,7 +610,53 @@ class PSG:
         df[signal_type + '_phasic_miniepochs'] = phasic_in_3s_miniepoch
         df[signal_type + '_phasic_miniepochs'] = df[signal_type + '_phasic_miniepochs'].ffill()
 
-        return df
+        return df, {'max_mean': max_mean, 'mean_duration': mean_duration}
+
+
+    @staticmethod
+    def _brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals, is_rem_series,
+                        min_rem_block, signal_name, signal_names, small_rem_pieces):
+        ### PLOTTIES ###
+        # for signal_type in signal_names:
+        #     # add signal type baseline column
+        #     df_baselines[signal_type + '_human_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
+        #                                                                                   signal_type)
+
+        fig, ax = plt.subplots()
+        # REM PHASES
+        # ax.fill_between(df_signals.index.values, is_rem_series * (-1000), is_rem_series * 1000,
+        #                 facecolor='lightblue', label="is_REM", alpha=0.7)
+
+        # ax.fill_between(df_signals.index.values,
+        #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+        #                 * (-750),
+        #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
+        #                 * 750,
+        #                 facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
+        ax.fill_between(df_signals.index.values, df_signals[signal_name + '_phasic'] * (-25),
+                        df_signals[signal_name + '_phasic'] * 25, alpha=0.7, facecolor='orange',
+                        edgecolor='darkgrey',
+                        label="phasic", zorder=12)
+        # ax.fill_between(df_signals.index.values, small_rem_pieces * (-25),
+        #                 small_rem_pieces * 25, alpha=0.7, facecolor='pink',
+        #                 edgecolor='darkgrey',
+        #                 label="small_rem_pieces", zorder=6)
+        # SIGNAL CHANNEL
+        ax.plot(df_signals.index.values, df_signals[signal_name], c='#313133', label=signal_name, alpha=0.85, zorder=11)
+        # ax.plot(df_signals.index.values, artifact_free_rem_block, c='deeppink', label='used_for_baseline', alpha=0.85, zorder=12)
+        # ax.plot(df_signals.index.values, numbered_rem_blocks, c='deeppink', label='numbered_rem_blocks', alpha=0.85, zorder=4)
+        # ax.plot(df_signals.index.values, all_rem_sleep_numbered * 10, c='lime', label='all_rem_sleep_numbered', alpha=0.85, zorder=13)
+        ax.plot(df_baselines[signal_name + '_baseline'], c='mediumseagreen', label=signal_name + "_baseline", zorder=13)
+        ax.plot(df_baselines[signal_name + '_baseline'] * (-1), c='mediumseagreen', zorder=13)
+        # ax.plot(df_baselines[signal_name + '_human_baseline'], c='blue', label=signal_name + " human baseline",
+        #         zorder=13)
+        # ax.plot(df_baselines[signal_name + '_human_baseline'] * (-1), c='blue', zorder=13)
+        # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
+        ax.plot(df_signals[signal_name + '_phasic_bouts'], c='deeppink', label="Phasic", zorder=14)
+        ax.legend(loc='upper left', facecolor='white', framealpha=1)
+        plt.show()
+
+
 
     @staticmethod
     def find_tonic_activity_and_adapt_baseline(df, signal_type, artifact_free_rem_sleep_epochs):
@@ -891,6 +899,57 @@ class PSG:
         df[signal_type + '_human_any_miniepochs'] = df[signal_type + '_human_any_miniepochs'].ffill()
 
         return df
+
+    @staticmethod
+    def find_rem_blocks(MIN_REM_BLOCK_LENGTH_IN_S, is_rem_series):
+        continuuos_rem_ge_min_block_length = is_rem_series \
+            .groupby(is_rem_series.diff().ne(0).cumsum()) \
+            .transform('size') \
+            .ge(Settings.RATE * MIN_REM_BLOCK_LENGTH_IN_S)
+        min_rem_block = \
+            continuuos_rem_ge_min_block_length & is_rem_series
+        rem_block_counter = 0
+
+        def transform_to_rem_group_name(x):
+            if x.all():
+                nonlocal rem_block_counter
+                rem_block_counter += 1
+                return rem_block_counter
+            else:
+                return 0
+
+        numbered_rem_blocks = min_rem_block \
+            .groupby(min_rem_block.diff().ne(0).cumsum()) \
+            .transform(transform_to_rem_group_name)
+        small_rem_pieces = is_rem_series & ~min_rem_block
+
+        def assign_small_piece_to_rem_block(x):
+            if x.all():
+                nonlocal numbered_rem_blocks
+
+                first_index_of_piece = x.index[0]
+                last_index_of_piece = x.index[-1]
+
+                block_indices = numbered_rem_blocks[numbered_rem_blocks != 0].index
+
+                closest_to_beginning_of_piece = min(first_index_of_piece - block_indices, key=abs)
+                closest_to_end_of_piece = min(last_index_of_piece - block_indices, key=abs)
+
+                if closest_to_beginning_of_piece < closest_to_end_of_piece:
+                    block_number = numbered_rem_blocks[first_index_of_piece - closest_to_beginning_of_piece]
+                else:
+                    block_number = numbered_rem_blocks[last_index_of_piece - closest_to_end_of_piece]
+
+                return block_number
+
+            else:
+                return 0
+
+        small_rem_pieces_assigned_to_numbered_rem_blocks = small_rem_pieces \
+            .groupby(small_rem_pieces.diff().ne(0).cumsum()) \
+            .transform(assign_small_piece_to_rem_block)
+        all_rem_sleep_numbered = numbered_rem_blocks + small_rem_pieces_assigned_to_numbered_rem_blocks
+        return all_rem_sleep_numbered, min_rem_block, numbered_rem_blocks, small_rem_pieces
 
     @staticmethod
     def add_signal_baseline_to_df(df_signals, annotation_data, signal_type):

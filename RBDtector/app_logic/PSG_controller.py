@@ -75,7 +75,7 @@ class PSGController:
                     df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
                     signal_names)
 
-            rbd_events = psg.detect_rbd_events(df_signals=df_signals, df_baselines=df_baselines,
+            rbd_events, amplitudes_and_durations = psg.detect_rbd_events(df_signals=df_signals, df_baselines=df_baselines,
                                                artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                signal_names=signal_names, annotation_data=annotation_data)
 
@@ -86,7 +86,8 @@ class PSGController:
                                                                is_global_artifact_free_rem_sleep_miniepoch_series,
                                                                artifact_free_rem_sleep_per_signal],
                                                               axis=1, verify_integrity=True),
-                                    signal_names=signal_names)
+                                    signal_names=signal_names,
+                                    amplitudes_and_durations=amplitudes_and_durations)
 
             return df_out
 
