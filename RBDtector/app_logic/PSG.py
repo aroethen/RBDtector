@@ -76,7 +76,7 @@ class PSG:
         self._calculated_data = pd.read_pickle(pickle_path)
         logging.info(f'Used pickled calculation dataframe from {pickle_path}')
 
-    def read_input(self, signals_to_evaluate, read_human_rating):
+    def read_input(self, signals_to_evaluate, read_human_rating, read_baseline=False):
         """
         Read input data from ``input_path`` as specified at PSG object instantiation
 
@@ -88,7 +88,8 @@ class PSG:
 
         raw_data, annotation_data = ir.read_input(directory_name=self._input_path,
                                                   signals_to_load=signals_to_evaluate.copy(),
-                                                  read_human_rating=read_human_rating)
+                                                  read_human_rating=read_human_rating,
+                                                  read_baseline=read_baseline)
 
         logging.debug('PSG finished reading input')
 
@@ -545,9 +546,6 @@ class PSG:
         max_amplitudes = max_amplitudes.loc[idx[:, True]]
         max_mean = max_amplitudes.mean()
 
-        print('===')
-        print(max_mean)
-
         # find mean non-tonic duration
         duration = non_tonic_sustained_activity \
             .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
@@ -555,10 +553,6 @@ class PSG:
             .divide(Settings.RATE)
         duration = duration.loc[idx[:, True]]
         mean_duration = duration.mean()
-
-        print('---')
-        print(mean_duration)
-        print('===')
 
         return df, {'max_mean': max_mean, 'mean_duration': mean_duration}
 

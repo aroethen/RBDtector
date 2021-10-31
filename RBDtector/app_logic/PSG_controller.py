@@ -19,7 +19,8 @@ class PSGController:
             psg.use_pickled_df_as_calculated_data(os.path.join(input_path, 'pickledDF'))
         else:
             raw_data, annotation_data = psg.read_input(Settings.SIGNALS_TO_EVALUATE.copy(),
-                                                       read_human_rating=Settings.HUMAN_ARTIFACTS)
+                                                       read_human_rating=Settings.HUMAN_ARTIFACTS,
+                                                       read_baseline=Settings.HUMAN_BASELINE)
 
             df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
                 psg.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE.copy(), Settings.FLOW)
