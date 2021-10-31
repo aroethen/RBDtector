@@ -79,7 +79,7 @@ class PSGController:
                                                artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                signal_names=signal_names, annotation_data=annotation_data)
 
-            df_out = csv_writer.write_output(output_path,
+            df_out, df_channel_combinations = csv_writer.write_output(output_path,
                                     subject_name=os.path.basename(input_path),
                                     calculated_data=pd.concat([rbd_events, is_REM_series,
                                                                is_global_artifact_free_rem_sleep_epoch_series,
@@ -89,6 +89,4 @@ class PSGController:
                                     signal_names=signal_names,
                                     amplitudes_and_durations=amplitudes_and_durations)
 
-            return df_out
-
-
+            return df_out, df_channel_combinations

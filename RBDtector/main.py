@@ -36,6 +36,7 @@ if __name__ == "__main__":
             dirlist = os.listdir(path)
             reading_problems = []
             df_out_combined = pd.DataFrame()
+            df_channel_combinations_combined = pd.DataFrame()
             first = True
 
             for child in dirlist:
@@ -44,14 +45,15 @@ if __name__ == "__main__":
                 if os.path.isdir(abs_child):
                     # if 'comparison_pickle' not in os.listdir(abs_child):
                     try:
-                        df_out = PSGController.run_rbd_detection(abs_child, abs_child)
+                        df_out, df_channel_combinations = PSGController.run_rbd_detection(abs_child, abs_child)
 
                         if first:
                             df_out_combined = df_out.copy()
+                            df_channel_combinations_combined = df_channel_combinations.copy()
                             first = False
                         else:
                             df_out_combined = pd.concat([df_out_combined, df_out], axis=1)
-
+                            df_channel_combinations_combined = pd.concat([df_channel_combinations_combined, df_channel_combinations])
 
                     except (OSError, ErrorForDisplay) as e:
                         print(f'Expectable error in file {abs_child}:\n {e}')
@@ -66,7 +68,13 @@ if __name__ == "__main__":
                         reading_problems.append(abs_child)
                         continue
 
-            df_out_combined.transpose().to_excel(os.path.join(path, f'RBDtector_combined_results_{datetime.now()}.xlsx'))
+            df_out_combined = df_out_combined\
+                .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
+            df_out_combined.transpose()\
+                .to_excel(os.path.join(path, f'RBDtector_combined_results_{datetime.now()}.xlsx'))
+
+            df_channel_combinations_combined\
+                .to_excel(os.path.join(path, f'Channel_combinations_combined_{datetime.now()}.xlsx'))
 
             if len(reading_problems) != 0:
                 logging.error(f'These files could not be read: {reading_problems}')

@@ -48,17 +48,16 @@ def write_output(output_path,
 
         df_out.transpose().to_excel(os.path.join(output_path, f'RBDtector_results_{datetime.now()}.xlsx'))
 
+        df_channel_combinations = create_channel_combinations_df(calculated_data, signal_names, subject_name)
+        df_channel_combinations.to_excel(os.path.join(output_path, f'Channel_combinations_{datetime.now()}.xlsx'))
+
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
             f.write(f"Date: {datetime.now()}"
                     f"{Settings.to_string()}"
                     f"{definitions_as_string()}"
                     )
 
-        #
-        #
-        # df_channel_combinations = create_channel_combinations_df(calculated_data, signal_names, subject_name)
-
-        return df_out
+        return df_out, df_channel_combinations
 
     except BaseException as e:
         with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
@@ -68,18 +67,42 @@ def write_output(output_path,
 
 
 
-# def create_channel_combinations_df(calculated_data, signal_names, subject_name):
-#     df = calculated_data.copy()
-#
-#     # create powerset of channel combinations
-#     qualities = {'ChinTonic', 'ChinPhasic', 'ChinAny',
-#                  'ArmsTonic', 'ArmsPhasic', 'ArmsAny',
-#                  'LegsTonic', 'LegsPhasic', 'LegsAny'
-#                  }
-#     s = list(qualities)
-#     all_combinations = chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
-#
+def create_channel_combinations_df(calculated_data, signal_names, subject_name):
+    df = calculated_data.copy()
 
+    # create powerset of channel combinations
+    qualities = {'ChinTonic': df['EMG_tonic'],
+                 'ChinPhasic': df['EMG_phasic_miniepochs'],
+                 'ChinAny': df['EMG_any_miniepochs'],
+                 'ArmsTonic': (df['AUX_tonic'] | df['Akti._tonic']),
+                 'ArmsPhasic': (df['AUX_phasic_miniepochs'] | df['Akti._phasic_miniepochs']),
+                 'ArmsAny': (df['AUX_any_miniepochs'] | df['Akti._any_miniepochs']),
+                 'LegsTonic': (df['PLM l_tonic'] | df['PLM r_tonic']),
+                 'LegsPhasic': (df['PLM l_phasic_miniepochs'] | df['PLM r_phasic_miniepochs']),
+                 'LegsAny': (df['PLM l_any_miniepochs'] | df['PLM r_any_miniepochs'])
+                 }
+    s = list(qualities.keys())
+    all_combinations = list(chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)))[1:]
+
+
+    df_channel_combinations = pd.DataFrame(columns=all_combinations, index=[subject_name,])
+    all_combinations_as_string = [','.join(x) for x in all_combinations]
+
+    # df_channel_combinations[subject_name] = all_combinations
+    # df_channel_combinations[subject_name] =
+    blubb = [[qualities[j] for j in i] for i in all_combinations]
+    bla = [np.logical_or.reduce(i) for i in blubb]
+    df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, bla)), index=df.index)
+
+    sum_of_channel_combinations = df_channel_combinations.loc[:, :].sum(axis=0)
+    epoch_length = 3
+    epoch_count = df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * epoch_length)
+    df_out = pd.DataFrame(sum_of_channel_combinations.values,
+                          columns=[subject_name, ],
+                          index=all_combinations_as_string).transpose()
+    df_out = (df_out / (Settings.RATE * epoch_length)) * 100 / epoch_count
+
+    return df_out
 
 
 def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and_durations):
