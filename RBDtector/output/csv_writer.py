@@ -71,25 +71,31 @@ def create_channel_combinations_df(calculated_data, signal_names, subject_name):
     df = calculated_data.copy()
 
     # create powerset of channel combinations
-    qualities = {'ChinTonic': df['EMG_tonic'],
-                 'ChinPhasic': df['EMG_phasic_miniepochs'],
-                 'ChinAny': df['EMG_any_miniepochs'],
-                 'ArmsTonic': (df['AUX_tonic'] | df['Akti._tonic']),
-                 'ArmsPhasic': (df['AUX_phasic_miniepochs'] | df['Akti._phasic_miniepochs']),
-                 'ArmsAny': (df['AUX_any_miniepochs'] | df['Akti._any_miniepochs']),
-                 'LegsTonic': (df['PLM l_tonic'] | df['PLM r_tonic']),
-                 'LegsPhasic': (df['PLM l_phasic_miniepochs'] | df['PLM r_phasic_miniepochs']),
-                 'LegsAny': (df['PLM l_any_miniepochs'] | df['PLM r_any_miniepochs'])
-                 }
+    qualities = {}
+    quality_keys = ['ChinTonic', 'ChinPhasic', 'ChinAny',
+                     'ArmsTonic', 'ArmsPhasic', 'ArmsAny',
+                     'LegsTonic', 'LegsPhasic', 'LegsAny']
+
+    quality_df_keys = ['EMG_tonic','EMG_phasic_miniepochs', 'EMG_any_miniepochs',
+                       ('AUX_tonic', 'Akti._tonic'), ('AUX_phasic_miniepochs', 'Akti._phasic_miniepochs'),
+                       ('AUX_any_miniepochs', 'Akti._any_miniepochs'),
+                       ('PLM l_tonic', 'PLM r_tonic'), ('PLM l_phasic_miniepochs', 'PLM r_phasic_miniepochs'),
+                       ('PLM l_any_miniepochs', 'PLM r_any_miniepochs')]
+
+    for key, df_key in zip(quality_keys, quality_df_keys):
+        try:
+            if isinstance(df_key, str):
+                qualities[key] = df[df_key]
+            else:
+                qualities[key] = df[df_key[0]] | df[df_key[1]]
+        except KeyError as e:
+            continue
+
     s = list(qualities.keys())
     all_combinations = list(chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)))[1:]
 
-
-    df_channel_combinations = pd.DataFrame(columns=all_combinations, index=[subject_name,])
     all_combinations_as_string = [','.join(x) for x in all_combinations]
 
-    # df_channel_combinations[subject_name] = all_combinations
-    # df_channel_combinations[subject_name] =
     blubb = [[qualities[j] for j in i] for i in all_combinations]
     bla = [np.logical_or.reduce(i) for i in blubb]
     df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, bla)), index=df.index)

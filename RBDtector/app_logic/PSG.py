@@ -539,20 +539,24 @@ class PSG:
 
         non_tonic_sustained_activity = df[signal_type + '_sustained_activity'] & ~(df[signal_type + '_tonic'])
 
-        max_amplitudes = pd.concat([non_tonic_sustained_activity, abs_normalized_signal], axis=1) \
-            .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
-            ['Absolute Normalized Signal'] \
-            .max()
-        max_amplitudes = max_amplitudes.loc[idx[:, True]]
-        max_mean = max_amplitudes.mean()
+        if non_tonic_sustained_activity.any():
+            max_amplitudes = pd.concat([non_tonic_sustained_activity, abs_normalized_signal], axis=1) \
+                .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
+                ['Absolute Normalized Signal'] \
+                .max()
+            max_amplitudes = max_amplitudes.loc[idx[:, True]]
+            max_mean = max_amplitudes.mean()
 
-        # find mean non-tonic duration
-        duration = non_tonic_sustained_activity \
-            .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
-            .size() \
-            .divide(Settings.RATE)
-        duration = duration.loc[idx[:, True]]
-        mean_duration = duration.mean()
+            # find mean non-tonic duration
+            duration = non_tonic_sustained_activity \
+                .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
+                .size() \
+                .divide(Settings.RATE)
+            duration = duration.loc[idx[:, True]]
+            mean_duration = duration.mean()
+        else:
+            max_mean = 0
+            mean_duration = 0
 
         return df, {'max_mean': max_mean, 'mean_duration': mean_duration}
 
@@ -575,26 +579,30 @@ class PSG:
             .le(Settings.RATE * 5)
         df[signal_type + '_phasic'] = continuous_phasic_sustained_activity & df[signal_type + '_sustained_activity']
 
-        # find phasic max amplitudes
-        abs_normalized_signal = (df[signal_type] / df[signal_type + '_baseline'])\
-            .squeeze()\
-            .abs()\
-            .rename('Absolute Normalized Signal')
+        if df[signal_type + '_phasic'].any():
+            # find phasic max amplitudes
+            abs_normalized_signal = (df[signal_type] / df[signal_type + '_baseline'])\
+                .squeeze()\
+                .abs()\
+                .rename('Absolute Normalized Signal')
 
-        max_amplitudes = pd.concat([df[signal_type + '_phasic'], abs_normalized_signal], axis=1)\
-            .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
-            ['Absolute Normalized Signal']\
-            .max()
-        max_amplitudes = max_amplitudes.loc[idx[:, True]]
-        max_mean = max_amplitudes.mean()
+            max_amplitudes = pd.concat([df[signal_type + '_phasic'], abs_normalized_signal], axis=1)\
+                .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
+                ['Absolute Normalized Signal']\
+                .max()
+            max_amplitudes = max_amplitudes.loc[idx[:, True]]
+            max_mean = max_amplitudes.mean()
 
-        # find mean phasic duration
-        duration = df[signal_type + '_phasic']\
-            .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
-            .size()\
-            .divide(Settings.RATE)
-        duration = duration.loc[idx[:, True]]
-        mean_duration = duration.mean()
+            # find mean phasic duration
+            duration = df[signal_type + '_phasic']\
+                .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
+                .size()\
+                .divide(Settings.RATE)
+            duration = duration.loc[idx[:, True]]
+            mean_duration = duration.mean()
+        else:
+            max_mean = 0
+            mean_duration = 0
 
         # find phasic miniepochs
         phasic_in_3s_miniepoch = df[signal_type + '_phasic'].squeeze() \
