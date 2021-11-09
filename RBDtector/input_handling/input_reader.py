@@ -151,14 +151,34 @@ def __read_txt_files(filenames: Dict, read_baseline: bool = True, read_human_rat
     """
     logging.debug('Start reading .txt files')
 
-    sleep_profile = __read_sleep_profile(filenames['sleep_profile'])
-    flow_events = __read_flow_events(filenames['flow_events'])
-    arousals = __read_arousals(filenames['arousals'])
+    try:
+        sleep_profile = __read_sleep_profile(filenames['sleep_profile'])
+    except UnicodeDecodeError:
+        sleep_profile = __read_sleep_profile(filenames['sleep_profile'], encoding='latin-1')
+
+    try:
+        flow_events = __read_flow_events(filenames['flow_events'])
+    except UnicodeDecodeError:
+        flow_events = __read_flow_events(filenames['flow_events'], encoding='latin-1')
+
+    try:
+        arousals = __read_arousals(filenames['arousals'])
+    except UnicodeDecodeError:
+        arousals = __read_arousals(filenames['arousals'], encoding='latin-1')
 
     start_date, recording_start_after_midnight = __find_start_date(sleep_profile[0], filenames['sleep_profile'])
     if read_baseline:
-        baseline = __read_baseline(
-            filenames['baseline'], start_date=start_date, recording_start_after_midnight=recording_start_after_midnight)
+        try:
+            baseline = __read_baseline(
+                filenames['baseline'],
+                start_date=start_date,
+                recording_start_after_midnight=recording_start_after_midnight)
+        except UnicodeDecodeError:
+            baseline = __read_baseline(
+                filenames['baseline'],
+                start_date=start_date,
+                recording_start_after_midnight=recording_start_after_midnight,
+                encoding='latin-1')
     else:
         baseline = None
 
@@ -172,7 +192,7 @@ def __read_txt_files(filenames: Dict, read_baseline: bool = True, read_human_rat
     return AnnotationData(sleep_profile, flow_events, arousals, baseline, human_rating)
 
 
-def __read_sleep_profile(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
+def __read_sleep_profile(filename: str, encoding: str = 'utf-8') -> Tuple[Dict[str, str], pd.DataFrame]:
     """
     Reads text file of sleep profile at file path 'filename'
     Text file format:
@@ -184,10 +204,8 @@ def __read_sleep_profile(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
     :param filename: path of sleep profile text file
     :return: Tuple containing the header as dictionary and a pandas DataFrame containing time stamps and classification
     """
-    header: [Dict[str, str]] = {}
-    df: pd.DataFrame = None
 
-    with open(filename, 'r', encoding='utf-8') as f:
+    with open(filename, 'r', encoding=encoding) as f:
 
         text_in_lines = f.readlines()
         timestamps: List[pd.Timestamp] = []
@@ -220,13 +238,12 @@ def __read_sleep_profile(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
             }, index=timestamps)
         df['sleep_phase'].astype('category')
 
-        f.close()
     return header, df
 
 
-def __read_flow_events(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
+def __read_flow_events(filename: str, encoding: str = 'utf-8') -> Tuple[Dict[str, str], pd.DataFrame]:
 
-    with open(filename, 'r', encoding='utf-8') as f:
+    with open(filename, 'r', encoding=encoding) as f:
         text_in_lines = f.readlines()
         header, first_line_of_data = __read_annotation_header(text_in_lines)
         start_date, recording_start_after_midnight = __find_start_date(header, filename)
@@ -247,14 +264,12 @@ def __read_flow_events(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
             })
         df['event'].astype('category')
 
-        f.close()
-
         return header, df
 
 
-def __read_arousals(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
+def __read_arousals(filename: str, encoding: str = 'utf-8') -> Tuple[Dict[str, str], pd.DataFrame]:
 
-    with open(filename, 'r', encoding='utf-8') as f:
+    with open(filename, 'r', encoding=encoding) as f:
         text_in_lines = f.readlines()
         header, first_line_of_data = __read_annotation_header(text_in_lines)
         start_date, recording_start_after_midnight = __find_start_date(header, filename)
@@ -275,14 +290,12 @@ def __read_arousals(filename: str) -> Tuple[Dict[str, str], pd.DataFrame]:
             })
         df['event'].astype('category')
 
-        f.close()
-
     return header, df
 
 
-def __read_baseline(filename: str, start_date: datetime.date, recording_start_after_midnight) -> Dict[str, datetime.datetime]:
+def __read_baseline(filename: str, start_date: datetime.date, recording_start_after_midnight, encoding: str = 'utf-8') -> Dict[str, datetime.datetime]:
     try:
-        with open(filename, 'r', encoding='utf-8') as f:
+        with open(filename, 'r', encoding=encoding) as f:
             text_in_lines = f.readlines()
             baseline_dict, _ = __read_annotation_header(text_in_lines)
 
@@ -326,13 +339,13 @@ def __read_baseline(filename: str, start_date: datetime.date, recording_start_af
                               '\nFull traceback information of the error is logged in logfile.txt.') from e
 
 
-def __read_human_rating(filenames: List[str], start_date, recording_start_after_midnight) \
+def __read_human_rating(filenames: List[str], start_date, recording_start_after_midnight, encoding: str = 'utf-8') \
         -> List[Tuple[Dict[str, str], pd.DataFrame]]:
 
     human_rating = []
 
     for filename in filenames:
-        with open(filename, 'r', encoding='utf-8') as f:
+        with open(filename, 'r', encoding=encoding) as f:
             text_in_lines = f.readlines()
             header, first_line_of_data = __read_annotation_header(text_in_lines)
 
@@ -352,7 +365,6 @@ def __read_human_rating(filenames: List[str], start_date, recording_start_after_
                 })
             df['event'].astype('category')
             human_rating.append((header, df))
-            f.close()
 
         if not human_rating:
             raise ErrorForDisplay("Human rating could not be found or read.")
@@ -442,6 +454,7 @@ def __read_annotation_body(annotation_body_in_lines, event_name_split_index, sta
 
     return event_onsets, event_name_list, event_end_times
 
+
 def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
     """
     Takes start time string out of dictionary['Start Time'], extracts the date part and returns it as datetime.date
@@ -455,7 +468,7 @@ def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
         recording_start_after_midnight = (datetime.time(0, 0, 0) <= start_time.time() < datetime.time(12, 0, 0))
 
     except KeyError as e:
-        logging.exception()
+        logging.exception('"Start Time" field missing in header of the following file:' + filename)
 
         raise ErrorForDisplay('"Start Time" field missing in header of the following file:' + filename) from e
 

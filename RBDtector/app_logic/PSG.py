@@ -106,15 +106,18 @@ class PSG:
         sample_length = len(raw_data.get_data_channels()['EMG'].get_signal())
 
         # prepare DataFrame with DatetimeIndex
-        idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
-        df = pd.DataFrame(index=idx)
+        preliminary_idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
+        # df = pd.DataFrame(index=preliminary_idx)
 
         # add sleep profile to df
-        df['sleep_phase'], df['is_REM'] = PSG.create_sleep_profile_column(df.index, annotation_data)
+        # df['sleep_phase'], df['is_REM'] = PSG.create_sleep_profile_column(df.index, annotation_data)
+        df = pd.concat(PSG.create_sleep_profile_column(preliminary_idx, annotation_data), axis=1)
 
-        # cut off all samples before start of sleep_profile assessment if it exists
-        start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
-        df = df[start_of_first_full_sleep_phase:]
+
+        # cut off all samples before start and after end of sleep_profile assessment if it exists
+        # start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
+        # end_of_last_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact'])[::-1].idxmax()
+        # df = df[start_of_first_full_sleep_phase:end_of_last_full_sleep_phase]
 
         # add signals to DataFrame
         for signal_type in signal_names.copy():
@@ -130,10 +133,11 @@ class PSG:
             # Resample to 256 Hz and add to df
             sample_rate = raw_data.get_data_channels()[signal_type].get_sample_rate()
             df[signal_type] = DataframeCreation.signal_to_hz_rate_datetimeindexed_series(
-                Settings.RATE, sample_rate, signal_array, signal_type, start_datetime)[start_of_first_full_sleep_phase:]
+                Settings.RATE, sample_rate, signal_array, signal_type, start_datetime)
+                # [start_of_first_full_sleep_phase:]
 
         # add global artifacts to df
-        df['is_global_artifact'] = PSG.add_artifacts_to_df(idx, annotation_data, assess_flow_events)
+        df['is_global_artifact'] = PSG.add_artifacts_to_df(df.index, annotation_data, assess_flow_events)
 
         return df[signal_names], df['is_REM'], df['is_global_artifact'], signal_names, df['sleep_phase']
 
@@ -474,30 +478,35 @@ class PSG:
                 classification strings. index is a DatetimeIndex containing the timestamps from the sleep profile input
                 text file
         :returns df['sleep_phase'], df['is_REM']: 2 pd.Series sleep_phase (categorical) and is_REM (bool) respectively,
-                with index idx
+                with index values from idx as long as they correspond to full sleep phase epochs
         """
         df = pd.DataFrame(index=idx)
         sleep_profile = annotation_data.sleep_profile[1]
 
         sleep_profile.sort_index(inplace=True)
 
-        # if first time stamp of sleep profile is before first timestamp of emg data, set first sleep profile entry to
-        # artifact
-        if sleep_profile.index.min() < df.index[0]:
-            sleep_profile.loc[sleep_profile.index.min(), 'sleep_phase'] = SLEEP_CLASSIFIERS['artifact']
+        # # if first time stamp of sleep profile is before first timestamp of emg data, set first sleep profile entry to
+        # # artifact
+        # if sleep_profile.index.min() < df.index[0]:
+        #     sleep_profile.loc[sleep_profile.index.min(), 'sleep_phase'] = SLEEP_CLASSIFIERS['artifact']
 
-        # append a final row to sleep profile with "Artifact" sleep phase
-        # for easier concatenation with df while correctly accounting for last 30s sleep profile interval
-        sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': SLEEP_CLASSIFIERS['artifact']},
-                                                          index=[sleep_profile.index.max() + pd.Timedelta('30s')])
-                                             )
+        # # append a final row to sleep profile with "Artifact" sleep phase
+        # # for easier concatenation with df while correctly accounting for last 30s sleep profile interval
+        # sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': SLEEP_CLASSIFIERS['artifact']},
+        #                                                   index=[sleep_profile.index.max() + pd.Timedelta('30s')])
+        #                                      )
 
-        sleep_profile.sort_index(inplace=True)
+        # sleep_profile.sort_index(inplace=True)
 
-        # resample sleep profile from 2Hz(30s intervals) to Settings.RATE Hz, fill all entries with the correct sleeping phase
-        # and add it as column to dataframe
+        # remove sleep phases which are not fully filled with samples
+        sleep_profile = sleep_profile[idx[0]:idx[-1]]
+
+        # resample sleep profile from 2Hz(30s intervals) to Settings.RATE Hz, fill all entries with the correct
+        # sleeping phase and add it as column to dataframe
+        # This cuts off all samples that do not have a correlating sleeping phase
         resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
+
         df['is_REM'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['REM'].lower()
 
         if Settings.SNORE:

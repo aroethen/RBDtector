@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     if DEV:
         if SUPERDIR:
-            path = '/media/SharedData/EMG/testifer'
+            path = '/media/SharedData/EMG/AUSLAGERUNG'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
             dirlist = os.listdir(path)
             reading_problems = []
@@ -81,7 +81,7 @@ if __name__ == "__main__":
                 logging.error(f'These files could not be read: {reading_problems}')
                 print(f'These files could not be read: {reading_problems}')
         else:
-            path = '/media/SharedData/EMG/morePSG-Data/iRBD0085'
+            path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0518'
             _ = PSGController.run_rbd_detection(path, path)
 
     else:
