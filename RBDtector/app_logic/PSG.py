@@ -499,7 +499,8 @@ class PSG:
         # sleep_profile.sort_index(inplace=True)
 
         # remove sleep phases which are not fully filled with samples
-        sleep_profile = sleep_profile[idx[0]:idx[-1]]
+        sleep_profile = sleep_profile.loc[idx[0]:idx[-1]]
+        sleep_profile.iloc[-1] = SLEEP_CLASSIFIERS['artifact']
 
         # resample sleep profile from 2Hz(30s intervals) to Settings.RATE Hz, fill all entries with the correct
         # sleeping phase and add it as column to dataframe

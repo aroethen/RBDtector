@@ -81,7 +81,7 @@ if __name__ == "__main__":
                 logging.error(f'These files could not be read: {reading_problems}')
                 print(f'These files could not be read: {reading_problems}')
         else:
-            path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0518'
+            path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'
             _ = PSGController.run_rbd_detection(path, path)
 
     else:
