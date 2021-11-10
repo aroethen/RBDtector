@@ -1,6 +1,7 @@
 numpy
-pyEDFlib
-ttkthemes
 pandas
 scipy
 matplotlib
+openpyxl
+pyEDFlib
+ttkthemes

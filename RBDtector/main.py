@@ -32,7 +32,8 @@ if __name__ == "__main__":
 
     if DEV:
         if SUPERDIR:
-            path = '/media/SharedData/EMG/AUSLAGERUNG'
+            path = '/localdata/EMG/EMG-Scorings iRBD Nora-Corrected'
+
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
             dirlist = os.listdir(path)
             reading_problems = []
