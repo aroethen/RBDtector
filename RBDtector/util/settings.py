@@ -10,6 +10,7 @@ class Settings:
     HUMAN_BASELINE = False
     FIND_ARTIFACTS = False
     SNORE = True
+    EX = True
 
     COUNT_BASED_ACTIVITY = False
     MIN_SUSTAINED = 0.1

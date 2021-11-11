@@ -514,6 +514,10 @@ class PSG:
             df['is_SNORE'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
             df['is_REM'] = np.logical_or(df['is_REM'], df['is_SNORE'])
 
+        if Settings.EX:
+            df['is_EX'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['EX'].lower()
+            df['is_REM'] = np.logical_or(df['is_REM'], df['is_EX'])
+
         return df['sleep_phase'], df['is_REM']
 
 
