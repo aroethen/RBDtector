@@ -328,12 +328,15 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
         human_rating2 = None
         human_rating2_label_dict = None
 
-    # find human artifacts
-    human_signal_artifacts = PSG.prepare_human_signal_artifacts(annotation_data, df.index, signal_names)
-    signal_artifacts = pd.DataFrame(index=df.index)
-    for signal_name in signal_names:
-        signal_artifacts[signal_name + '_signal_artifact'] = \
-            human_signal_artifacts[signal_name + '_human_artifact']
+    signal_artifacts = None
+
+    if Settings.HUMAN_ARTIFACTS:
+        # find human artifacts
+        human_signal_artifacts = PSG.prepare_human_signal_artifacts(annotation_data, df.index, signal_names)
+        signal_artifacts = pd.DataFrame(index=df.index)
+        for signal_name in signal_names:
+            signal_artifacts[signal_name + '_signal_artifact'] = \
+                human_signal_artifacts[signal_name + '_human_artifact']
 
     artifact_free_rem_sleep_per_signal = PSG.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
         df.index, df['is_REM'], df['is_artifact'], signal_artifacts, signal_names)
