@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     if DEV:
         if SUPERDIR:
-            path = '/media/SharedData/EMG/AUSLAGERUNG'
+            path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
             dirlist = os.listdir(path)
             reading_problems = []
