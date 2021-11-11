@@ -32,8 +32,9 @@ if __name__ == "__main__":
 
     if DEV:
         if SUPERDIR:
-            path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
+            # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
+            path = '/media/SharedData/EMG/testifer'
             dirlist = os.listdir(path)
             reading_problems = []
             df_out_combined = pd.DataFrame()
@@ -51,10 +52,23 @@ if __name__ == "__main__":
                         if first:
                             df_out_combined = df_out.copy()
                             df_channel_combinations_combined = df_channel_combinations.copy()
+
                             first = False
                         else:
                             df_out_combined = pd.concat([df_out_combined, df_out], axis=1)
-                            df_channel_combinations_combined = pd.concat([df_channel_combinations_combined, df_channel_combinations])
+                            df_channel_combinations_combined = \
+                                pd.concat([df_channel_combinations_combined, df_channel_combinations])
+
+                        # write intermediate combination results
+                        try:
+                            df_out_combined = df_out_combined \
+                                .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
+                        except:
+                            continue
+                        df_out_combined.transpose().to_csv(
+                            os.path.join(path, f'Intermediate_combined_results.csv'))
+                        df_channel_combinations_combined.to_csv(
+                            os.path.join(path, f'Intermediate_combined_combinations.csv'))
 
                     except (OSError, ErrorForDisplay) as e:
                         print(f'Expectable error in file {abs_child}:\n {e}')
