@@ -33,8 +33,9 @@ if __name__ == "__main__":
     if DEV:
         if SUPERDIR:
             # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
-            # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
-            path = '/media/SharedData/EMG/testifer'
+            path = '/localdata/EMG/EMG-Scorings iRBD Nora'
+
+            # path = '/localdata/EMG/Data_Niels'
             dirlist = os.listdir(path)
             reading_problems = []
             df_out_combined = pd.DataFrame()
