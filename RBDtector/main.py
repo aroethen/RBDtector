@@ -35,6 +35,10 @@ if __name__ == "__main__":
             path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
             # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
+            # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
+            path = '/localdata/EMG/EMG-Scorings iRBD Nora'
+
+            # path = '/localdata/EMG/Data_Niels'
             dirlist = os.listdir(path)
             reading_problems = []
             df_out_combined = pd.DataFrame()
