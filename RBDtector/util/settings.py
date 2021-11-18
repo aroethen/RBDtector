@@ -4,12 +4,13 @@ class Settings:
     DEV_READ_PICKLE_INSTEAD_OF_EDF = False
     RATE = 256
     FREQ = '3.90625ms'
+
     FLOW = True
 
     HUMAN_ARTIFACTS = False
     HUMAN_BASELINE = False
     FIND_ARTIFACTS = False
-    SNORE = True
+    SNORE = False
     EX = True
 
     COUNT_BASED_ACTIVITY = False
@@ -37,6 +38,7 @@ class Settings:
                    f'HUMAN_BASELINE = {Settings.HUMAN_BASELINE}\n' +
                    f'FIND_ARTIFACTS = {Settings.FIND_ARTIFACTS}\n' +
                    f'SNORE = {Settings.SNORE}\n' +
+                   f'EX = {Settings.EX}\n' +
                    f'COUNT_BASED_ACTIVITY = {Settings.COUNT_BASED_ACTIVITY}\n' +
                    f'MIN_SUSTAINED = {Settings.MIN_SUSTAINED}\n' +
                    f'MAX_GAP_SIZE = {Settings.MAX_GAP_SIZE}\n' +

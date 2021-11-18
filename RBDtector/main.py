@@ -16,7 +16,7 @@ from app_logic.PSG import PSG
 from util.error_for_display import ErrorForDisplay
 from util.settings import Settings
 
-DEV = True
+DEV = False
 
 SUPERDIR = True
 
@@ -32,9 +32,9 @@ if __name__ == "__main__":
 
     if DEV:
         if SUPERDIR:
-            # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
+            path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
-            path = '/media/SharedData/EMG/testifer'
+            # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
             dirlist = os.listdir(path)
             reading_problems = []
             df_out_combined = pd.DataFrame()
@@ -99,12 +99,16 @@ if __name__ == "__main__":
             _ = PSGController.run_rbd_detection(path, path)
 
     else:
-        try:
-            gui.start_gui()
-        except BaseException as e:
-            logging.error(f'Programm terminated with unexpected error:\n {e}')
-            logging.error(traceback.format_exc())
-            print(f'An unexpected error occurred. Error message can be found in log file. Please contact the developer.')
-            sys.exit(1)
+        rbd_gui = gui.Gui()
+        rbd_gui.mainloop()
+        # try:
+        #     rbd_gui = gui.Gui()
+        #     rbd_gui.mainloop()
+        #     # gui.start_gui()
+        # except BaseException as e:
+        #     logging.error(f'Programm terminated with unexpected error:\n {e}')
+        #     logging.error(traceback.format_exc())
+        #     print(f'An unexpected error occurred. Error message can be found in log file. Please contact the developer.')
+        #     sys.exit(1)
 
     # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code
