@@ -13,7 +13,7 @@ from util.settings import Settings
 from util.stats_settings import StatsSettings
 
 
-def generate_signal_artifact_detection_statistics(dirname='/media/SharedData/EMG/EMGs'):
+def generate_signal_artifact_detection_statistics(dirname='/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'):
 
     # Get a list of all directory paths, that contain human ratings
     human_rated_dirs = stats_script.find_all_human_rated_directories(dirname)

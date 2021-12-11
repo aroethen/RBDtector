@@ -82,7 +82,7 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
 
         if file_type == 'sleep_profile':
             if len(tmp_files) == 2:
-                if Settings.SNORE:
+                if Settings.SNORE or Settings.EX:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' in file_str]
                 else:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' not in file_str]

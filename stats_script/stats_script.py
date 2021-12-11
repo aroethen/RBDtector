@@ -156,87 +156,90 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
     miniepochs = '_miniepochs'
 
     for signal in signals:
-        for category in categories:
+        try:
+            for category in categories:
 
-            # preparation of variables according to current signal and whether human artifacts were considered
-            # during RBDtection
-            if category == 'tonic':
-                epoch_length = 30
-                miniepochs = ''
+                # preparation of variables according to current signal and whether human artifacts were considered
+                # during RBDtection
+                if category == 'tonic':
+                    epoch_length = 30
+                    miniepochs = ''
 
-                # if human artifacts were not considered in RBDtection,
-                # use the global artifact-free-rem-sleep for total epoch count
-                if Settings.HUMAN_ARTIFACTS:
-                    # local signal artifacts
-                    artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_epoch']
-                    epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
+                    # if human artifacts were not considered in RBDtection,
+                    # use the global artifact-free-rem-sleep for total epoch count
+                    if Settings.HUMAN_ARTIFACTS:
+                        # local signal artifacts
+                        artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_epoch']
+                        epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
+                    else:
+                        # global artifacts
+                        artifact_free_column = evaluation_df['artifact_free_rem_sleep_epoch']
+                        epoch_count = artifact_free_rem_epochs
+
                 else:
-                    # global artifacts
-                    artifact_free_column = evaluation_df['artifact_free_rem_sleep_epoch']
-                    epoch_count = artifact_free_rem_epochs
+                    epoch_length = 3
+                    miniepochs = '_miniepochs'
 
-            else:
-                epoch_length = 3
-                miniepochs = '_miniepochs'
+                    # if human artifacts were not considered in RBDtection,
+                    # use the global artifact-free-rem-sleep for total epoch count
+                    if Settings.HUMAN_ARTIFACTS:
+                        # local signal artifacts
+                        artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_miniepoch']
+                        epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
+                    else:
+                        # global artifacts
+                        artifact_free_column = evaluation_df['artifact_free_rem_sleep_miniepoch']
+                        epoch_count = artifact_free_rem_miniepochs
 
-                # if human artifacts were not considered in RBDtection,
-                # use the global artifact-free-rem-sleep for total epoch count
-                if Settings.HUMAN_ARTIFACTS:
-                    # local signal artifacts
-                    artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_miniepoch']
-                    epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
-                else:
-                    # global artifacts
-                    artifact_free_column = evaluation_df['artifact_free_rem_sleep_miniepoch']
-                    epoch_count = artifact_free_rem_miniepochs
+                output_df.loc[(signal, category, 'Artifact-free REM sleep (mini-)epochs'), subject] = epoch_count
 
-            output_df.loc[(signal, category, 'Artifact-free REM sleep (mini-)epochs'), subject] = epoch_count
+                shared_pos = \
+                    (evaluation_df[signal + r1 + '_' + category + miniepochs]
+                     & evaluation_df[signal + r2 + '_' + category + miniepochs])\
+                    .sum() / (Settings.RATE * epoch_length)
+                output_df.loc[(signal, category, 'shared pos'), subject] = shared_pos
 
-            shared_pos = \
-                (evaluation_df[signal + r1 + '_' + category + miniepochs]
-                 & evaluation_df[signal + r2 + '_' + category + miniepochs])\
-                .sum() / (Settings.RATE * epoch_length)
-            output_df.loc[(signal, category, 'shared pos'), subject] = shared_pos
-
-            shared_neg = \
-                (
+                shared_neg = \
                     (
-                            (~evaluation_df[signal + r1 + '_' + category + miniepochs])
-                            & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
-                    ) & artifact_free_column
-                 ).sum() / (Settings.RATE * epoch_length)
-            output_df.loc[(signal, category, 'shared neg'), subject] = shared_neg
+                        (
+                                (~evaluation_df[signal + r1 + '_' + category + miniepochs])
+                                & (~evaluation_df[signal + r2 + '_' + category + miniepochs])
+                        ) & artifact_free_column
+                     ).sum() / (Settings.RATE * epoch_length)
+                output_df.loc[(signal, category, 'shared neg'), subject] = shared_neg
 
-            r1_abs_pos = \
-                evaluation_df[signal + r1 + '_' + category + miniepochs]\
-                .sum() / (Settings.RATE * epoch_length)
-            output_df.loc[(signal, category, raters[0] + ' abs pos'), subject] = r1_abs_pos
+                r1_abs_pos = \
+                    evaluation_df[signal + r1 + '_' + category + miniepochs]\
+                    .sum() / (Settings.RATE * epoch_length)
+                output_df.loc[(signal, category, raters[0] + ' abs pos'), subject] = r1_abs_pos
 
-            output_df.loc[(signal, category, raters[0] + ' % pos'), subject] = \
-                (r1_abs_pos * 100) / epoch_count
+                output_df.loc[(signal, category, raters[0] + ' % pos'), subject] = \
+                    (r1_abs_pos * 100) / epoch_count
 
-            output_df.loc[(signal, category, raters[0] + ' pos only'), subject] = r1_abs_pos - shared_pos
+                output_df.loc[(signal, category, raters[0] + ' pos only'), subject] = r1_abs_pos - shared_pos
 
-            r2_abs_pos = \
-                evaluation_df[signal + r2 + '_' + category + miniepochs]\
-                .sum() / (Settings.RATE * epoch_length)
-            output_df.loc[(signal, category, raters[1] + ' abs pos'), subject] = r2_abs_pos
+                r2_abs_pos = \
+                    evaluation_df[signal + r2 + '_' + category + miniepochs]\
+                    .sum() / (Settings.RATE * epoch_length)
+                output_df.loc[(signal, category, raters[1] + ' abs pos'), subject] = r2_abs_pos
 
-            output_df.loc[(signal, category, raters[1] + ' % pos'), subject] = \
-                (r2_abs_pos * 100) / epoch_count
+                output_df.loc[(signal, category, raters[1] + ' % pos'), subject] = \
+                    (r2_abs_pos * 100) / epoch_count
 
-            output_df.loc[(signal, category, raters[1] + ' pos only'), subject] = r2_abs_pos - shared_pos
+                output_df.loc[(signal, category, raters[1] + ' pos only'), subject] = r2_abs_pos - shared_pos
 
-            r1_abs_neg = epoch_count - r1_abs_pos
-            r2_abs_neg = epoch_count - r2_abs_pos
-            p_0 = (shared_pos + shared_neg) \
-                / epoch_count
+                r1_abs_neg = epoch_count - r1_abs_pos
+                r2_abs_neg = epoch_count - r2_abs_pos
+                p_0 = (shared_pos + shared_neg) \
+                    / epoch_count
 
-            p_c = ((r1_abs_pos * r2_abs_pos) + (r1_abs_neg * r2_abs_neg)) \
-                / (epoch_count ** 2)
+                p_c = ((r1_abs_pos * r2_abs_pos) + (r1_abs_neg * r2_abs_neg)) \
+                    / (epoch_count ** 2)
 
-            output_df.loc[(signal, category, 'Cohen\'s Kappa'), subject] = (p_0 - p_c) / (1 - p_c)
-
+                output_df.loc[(signal, category, 'Cohen\'s Kappa'), subject] = (p_0 - p_c) / (1 - p_c)
+        except KeyError as e:
+            logging.info(f'{signal} could not be found in comparison pickle. Error message')
+            logging.error(e)
     return output_df
 
 

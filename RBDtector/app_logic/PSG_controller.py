@@ -55,6 +55,8 @@ class PSGController:
             if Settings.SNORE:
                 if 'EMG' in signal_names:
                     snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
+                    ex_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['EX'].lower()
+                    snore_series = snore_series | ex_series
                     signal_artifacts['EMG_signal_artifact'] = signal_artifacts['EMG_signal_artifact'] | snore_series
 
             artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(

@@ -5,10 +5,10 @@ class Settings:
     RATE = 256
     FREQ = '3.90625ms'
 
-    FLOW = True
+    FLOW = False
     HUMAN_ARTIFACTS = False
     SNORE = True
-    EX = False
+    EX = True
 
     HUMAN_BASELINE = False
     FIND_ARTIFACTS = False

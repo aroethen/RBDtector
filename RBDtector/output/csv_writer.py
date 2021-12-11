@@ -38,11 +38,8 @@ def write_output(output_path,
             for category in ['phasic', 'any']:
                 miniepoch_column_names.append('{}_{}_miniepochs'.format(signal, category))
 
-        try:
-            comparison_df = calculated_data[miniepoch_column_names]
-            comparison_df.to_pickle(os.path.join(output_path, 'comparison_pickle'))
-        except KeyError:
-            logging.info("No calculated data exists. This may be due to no viable REM sleep phases in all channels.")
+        comparison_df = calculated_data[calculated_data.columns.intersection(miniepoch_column_names)]
+        comparison_df.to_pickle(os.path.join(output_path, 'comparison_pickle'))
 
         df_out = create_result_df(calculated_data, signal_names, subject_name, amplitudes_and_durations)
 

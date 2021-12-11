@@ -16,7 +16,7 @@ from app_logic.PSG import PSG
 from util.error_for_display import ErrorForDisplay
 from util.settings import Settings
 
-DEV = False
+DEV = True
 
 SUPERDIR = True
 
@@ -35,8 +35,8 @@ if __name__ == "__main__":
             path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
             # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
-            # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
-            path = '/localdata/EMG/EMG-Scorings iRBD Nora'
+            # path = '/media/SharedData/EMG/Rerun EX'
+            # path = '/localdata/EMG/EMG-Scorings iRBD Nora'
 
             # path = '/localdata/EMG/Data_Niels'
             dirlist = os.listdir(path)
@@ -99,7 +99,8 @@ if __name__ == "__main__":
                 logging.error(f'These files could not be read: {reading_problems}')
                 print(f'These files could not be read: {reading_problems}')
         else:
-            path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'
+            # path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'
+            path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs/iRBD0216'
             _ = PSGController.run_rbd_detection(path, path)
 
     else:
