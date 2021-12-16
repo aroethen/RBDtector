@@ -18,7 +18,7 @@ from util.settings import Settings
 
 DEV = True
 
-SUPERDIR = True
+SUPERDIR = False
 
 if __name__ == "__main__":
     logging.basicConfig(

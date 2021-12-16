@@ -22,7 +22,7 @@ class PSGController:
         else:
             raw_data, annotation_data = psg.read_input(Settings.SIGNALS_TO_EVALUATE.copy(),
                                                        read_human_rating=Settings.HUMAN_ARTIFACTS,
-                                                       read_baseline=Settings.HUMAN_BASELINE)
+                                                       read_baseline=True)
 
             df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
                 psg.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE.copy(), Settings.FLOW)
@@ -66,23 +66,24 @@ class PSGController:
                 signal_names)
 
             # FIND BASELINE
-            if Settings.HUMAN_BASELINE:
-                df_baselines, _ = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
-                                                  use_human_baselines=True, annotation_data=annotation_data)
-            else:
-                df_baselines, df_baseline_artifacts = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
-                                                  use_human_baselines=False, is_rem_series=is_REM_series,
-                                                  artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
+
+            df_baselines_human, _ = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
+                                              use_human_baselines=True, annotation_data=annotation_data)
+            df_baselines, df_baseline_artifacts = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
+                                              use_human_baselines=False, is_rem_series=is_REM_series,
+                                              artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                   annotation_data=annotation_data)
 
-                for signal_name in signal_names:
-                    signal_artifacts[signal_name + '_signal_artifact'] = \
-                        signal_artifacts[signal_name + '_signal_artifact'] \
-                        | df_baseline_artifacts[signal_name + '_baseline_artifact']
+            for signal_name in signal_names:
+                signal_artifacts[signal_name + '_signal_artifact'] = \
+                    signal_artifacts[signal_name + '_signal_artifact'] \
+                    | df_baseline_artifacts[signal_name + '_baseline_artifact']
 
-                artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
-                    df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
-                    signal_names)
+            df_baselines['EMG_baseline'] = df_baselines_human['EMG_baseline']
+
+            artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
+                df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
+                signal_names)
 
             rbd_events, amplitudes_and_durations = psg.detect_rbd_events(df_signals=df_signals, df_baselines=df_baselines,
                                                artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
