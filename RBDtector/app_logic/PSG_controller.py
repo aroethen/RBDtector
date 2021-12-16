@@ -7,6 +7,8 @@ from util.settings import Settings
 from app_logic.PSG import PSG
 from output import csv_writer
 
+import matplotlib.pyplot as plt
+
 
 class PSGController:
     """High-level controller for PSG evaluation functionality. Provides easy to use functions for RBD event detection."""
@@ -85,6 +87,7 @@ class PSGController:
             rbd_events, amplitudes_and_durations = psg.detect_rbd_events(df_signals=df_signals, df_baselines=df_baselines,
                                                artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
                                                signal_names=signal_names, annotation_data=annotation_data)
+
 
             df_out, df_channel_combinations = csv_writer.write_output(output_path,
                                     subject_name=os.path.basename(input_path),

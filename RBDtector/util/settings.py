@@ -6,9 +6,9 @@ class Settings:
     FREQ = '3.90625ms'
 
     FLOW = False
-    HUMAN_ARTIFACTS = False
-    SNORE = True
-    EX = True
+    HUMAN_ARTIFACTS = True
+    SNORE = False
+    EX = False
 
     HUMAN_BASELINE = False
     FIND_ARTIFACTS = False
