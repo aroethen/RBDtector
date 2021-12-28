@@ -16,7 +16,7 @@ from app_logic.PSG import PSG
 from util.error_for_display import ErrorForDisplay
 from util.settings import Settings
 
-DEV = True
+DEV = False
 
 SUPERDIR = True
 
@@ -108,6 +108,7 @@ if __name__ == "__main__":
             _ = PSGController.run_rbd_detection(path, path)
 
     else:
+
         rbd_gui = gui.Gui()
         rbd_gui.mainloop()
         # try:
