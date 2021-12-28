@@ -4,16 +4,17 @@ class Settings:
     DEV = False
     DEV_READ_PICKLE_INSTEAD_OF_EDF = False
 
-    # Internally used rate and frequency
+    # Internally used sample rate
     RATE = 256
 
+    # Artifact types to be excluded from evaluation
     FLOW = False
     HUMAN_ARTIFACTS = False
     SNORE = False
     EX = False
 
+    # Use manually defined static baselines from a baseline file instead of calculating adaptive baseline levels
     HUMAN_BASELINE = False
-    FIND_ARTIFACTS = False
 
     COUNT_BASED_ACTIVITY = False
     MIN_SUSTAINED = 0.1
@@ -21,7 +22,6 @@ class Settings:
     CHUNK_SIZE = '30L'
     WITH_OFFSET = True
     OFFSET_SIZE = '15L'
-    LOW_PASS = 12
 
     VERBOSE = True
     SHOW_PLOT = True
@@ -46,7 +46,6 @@ class Settings:
                    f'CHUNK_SIZE = {Settings.CHUNK_SIZE}\n' +
                    f'WITH_OFFSET = {Settings.WITH_OFFSET}\n' +
                    f'OFFSET_SIZE = {Settings.OFFSET_SIZE}\n' +
-                   f'LOW_PASS = {Settings.LOW_PASS}\n' +
                    f'VERBOSE = {Settings.VERBOSE}\n' +
                    f'SHOW_PLOT = {Settings.SHOW_PLOT}\n' +
                    f'SIGNALS_TO_EVALUATE = {str(Settings.SIGNALS_TO_EVALUATE)}\n'

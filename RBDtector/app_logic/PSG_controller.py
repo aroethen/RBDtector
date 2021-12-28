@@ -50,10 +50,6 @@ class PSGController:
                     signal_artifacts[signal_name + '_signal_artifact'] = \
                         human_signal_artifacts[signal_name + '_human_artifact']
 
-            if Settings.FIND_ARTIFACTS:
-                # TODO implement: detected_signal_artifacts = data.detect_signal_artifacts()
-                raise NotImplementedError
-
             if Settings.SNORE:
                 if 'EMG' in signal_names:
                     snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
