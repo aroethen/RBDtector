@@ -1,9 +1,11 @@
 
 class Settings:
+    # Dev
     DEV = False
     DEV_READ_PICKLE_INSTEAD_OF_EDF = False
+
+    # Internally used rate and frequency
     RATE = 256
-    FREQ = '3.90625ms'
 
     FLOW = False
     HUMAN_ARTIFACTS = False
@@ -32,7 +34,6 @@ class Settings:
         return str(f'DEV = {Settings.DEV}\n' +
                    f'DEV_READ_PICKLE_INSTEAD_OF_EDF = {Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF}\n' +
                    f'RATE = {Settings.RATE}\n' +
-                   f'FREQ = {Settings.FREQ}\n' +
                    f'FLOW = {Settings.FLOW}\n' +
                    f'HUMAN_ARTIFACTS = {Settings.HUMAN_ARTIFACTS}\n' +
                    f'HUMAN_BASELINE = {Settings.HUMAN_BASELINE}\n' +

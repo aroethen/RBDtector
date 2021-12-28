@@ -798,7 +798,7 @@ class PSG:
                 .resample(Settings.CHUNK_SIZE) \
                 .sum() \
                 .apply(lambda x: x > 3)
-            increased_in_point05s = increased_in_point05s.resample(Settings.FREQ).ffill()
+            increased_in_point05s = increased_in_point05s.resample(str(1000 / Settings.RATE) + 'ms').ffill()
             df[signal_type + '_increased_activity'] = increased_in_point05s
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity']
 
@@ -807,7 +807,7 @@ class PSG:
                     .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
                     .sum() \
                     .apply(lambda x: x > 3)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(Settings.FREQ).ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / Settings.RATE) + 'ms').ffill()
                 df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
                 df[signal_type + '_increased_activity'] = np.logical_or(
                     df[signal_type + '_increased_activity'],
@@ -822,7 +822,7 @@ class PSG:
                 .mean() \
                 .apply(np.sqrt)
 
-            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(Settings.FREQ).ffill()
+            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(str(1000 / Settings.RATE) + 'ms').ffill()
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].ffill()
             df[signal_type + '_increased_activity'] = \
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
@@ -834,7 +834,7 @@ class PSG:
                     .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
                     .mean() \
                     .apply(np.sqrt)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(Settings.FREQ).ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / Settings.RATE) + 'ms').ffill()
                 increased_activity_with_offset = pd.Series(increased_in_point05s_with_offset, index=df.index)
                 increased_activity_with_offset = \
                     increased_activity_with_offset > (2 * df[signal_type + '_baseline'])

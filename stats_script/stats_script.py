@@ -479,12 +479,12 @@ def generate_sleep_profile_df(annotation_data) -> pd.DataFrame:
 
     # resample sleep profile from 30s intervals to 256 Hz, fill all entries with the correct sleeping phase
     # and add it as column to dataframe
-    resampled_sleep_profile = sleep_profile.resample(Settings.FREQ).ffill()
+    resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
     # df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
 
     start_datetime = datetime.strptime(annotation_data.sleep_profile[0]['Start Time'], '%d.%m.%Y %H:%M:%S')
     end_datetime = resampled_sleep_profile.index.max()
-    idx = pd.date_range(start_datetime, end_datetime, freq=Settings.FREQ)
+    idx = pd.date_range(start_datetime, end_datetime, freq=str(1000 / Settings.RATE) + 'ms')
     df = pd.DataFrame(index=idx)
     df['is_REM'] = resampled_sleep_profile['sleep_phase'] == "REM"
     return df
