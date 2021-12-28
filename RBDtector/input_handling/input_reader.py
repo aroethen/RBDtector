@@ -183,8 +183,11 @@ def __read_txt_files(filenames: Dict, read_baseline: bool = True, read_human_rat
         baseline = None
 
     if read_human_rating:
-        human_rating = __read_human_rating(
-            filenames['human_rating'], start_date=start_date, recording_start_after_midnight=recording_start_after_midnight)
+        try:
+            human_rating = __read_human_rating(
+                filenames['human_rating'], start_date=start_date, recording_start_after_midnight=recording_start_after_midnight)
+        except KeyError:
+            raise ErrorForDisplay("No human rating for this PSG. No calculation for this directory.")
     else:
         human_rating = None
 

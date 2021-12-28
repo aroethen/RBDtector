@@ -34,8 +34,8 @@ if __name__ == "__main__":
         if SUPERDIR:
             # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
-            path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
-            # path = '/media/SharedData/EMG/Rerun EX'
+            # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
+            path = 'D:/EMG/testifer'
             # path = '/localdata/EMG/EMG-Scorings iRBD Nora'
 
             # path = '/localdata/EMG/Data_Niels'
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
             for child in dirlist:
             # for abs_child in ['/media/SharedData/EMG/morePSG-Data/iRBD0065', '/media/SharedData/EMG/morePSG-Data/iRBD0067', '/media/SharedData/EMG/morePSG-Data/iRBD0113', '/media/SharedData/EMG/morePSG-Data/iRBD0216', '/media/SharedData/EMG/morePSG-Data/iRBD0223', '/media/SharedData/EMG/morePSG-Data/iRBD0268', '/media/SharedData/EMG/morePSG-Data/iRBD0273', '/media/SharedData/EMG/morePSG-Data/iRBD0310']:
-                abs_child = os.path.join(path, child)
+                abs_child = os.path.normpath(os.path.join(path, child))
                 if os.path.isdir(abs_child):
                     # if 'comparison_pickle' not in os.listdir(abs_child):
                     try:
@@ -70,9 +70,9 @@ if __name__ == "__main__":
                         except:
                             continue
                         df_out_combined.transpose().to_csv(
-                            os.path.join(path, f'Intermediate_combined_results.csv'))
+                            os.path.normpath(os.path.join(path, f'Intermediate_combined_results.csv')))
                         df_channel_combinations_combined.to_csv(
-                            os.path.join(path, f'Intermediate_combined_combinations.csv'))
+                            os.path.normpath(os.path.join(path, f'Intermediate_combined_combinations.csv')))
 
                     except (OSError, ErrorForDisplay) as e:
                         print(f'Expectable error in file {abs_child}:\n {e}')
@@ -87,16 +87,20 @@ if __name__ == "__main__":
                         reading_problems.append(abs_child)
                         continue
 
-            df_out_combined = df_out_combined\
-                .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
+            if not df_out_combined.empty:
+                df_out_combined = df_out_combined\
+                    .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
+
             df_out_combined.transpose()\
-                .to_excel(os.path.join(path, f'RBDtector_combined_results_{datetime.now()}.xlsx'))
+                .to_excel(os.path.normpath(
+                os.path.join(path, f'RBDtector_combined_results_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
 
             df_channel_combinations_combined\
-                .to_excel(os.path.join(path, f'Channel_combinations_combined_{datetime.now()}.xlsx'))
+                .to_excel(os.path.normpath(
+                os.path.join(path, f'Channel_combinations_combined_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
 
             if len(reading_problems) != 0:
-                logging.error(f'These files could not be read: {reading_problems}')
+                logging.error(f'These files could not be processed: {reading_problems}')
                 print(f'These files could not be read: {reading_problems}')
         else:
             # path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'

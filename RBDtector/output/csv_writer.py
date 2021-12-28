@@ -1,3 +1,4 @@
+import sys
 from itertools import chain, combinations
 
 import pandas as pd
@@ -43,13 +44,18 @@ def write_output(output_path,
 
         df_out = create_result_df(calculated_data, signal_names, subject_name, amplitudes_and_durations)
 
-        df_out.transpose().to_excel(os.path.join(output_path, f'RBDtector_results_{datetime.now()}.xlsx'))
+        df_out.transpose().to_excel(os.path.normpath(
+            os.path.join(
+                output_path,
+                f'RBDtector_results_{str(datetime.now()).replace(" ", "_").replace(":", "-")}'
+                f'.xlsx')))
 
         df_channel_combinations = create_channel_combinations_df(calculated_data, signal_names, subject_name)
-        df_channel_combinations.to_excel(os.path.join(output_path, f'Channel_combinations_{datetime.now()}.xlsx'))
+        df_channel_combinations.to_excel(os.path.normpath(
+            os.path.join(output_path, f'Channel_combinations_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
 
-        with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
-            f.write(f"Date: {datetime.now()}"
+        with open(os.path.normpath(os.path.join(output_path, 'current_settings.csv')), 'w') as f:
+            f.write(f"Date: {str(datetime.now()).replace(' ', '_').replace(':', '-')}"
                     f"{Settings.to_string()}"
                     f"{definitions_as_string()}"
                     )
@@ -57,8 +63,9 @@ def write_output(output_path,
         return df_out, df_channel_combinations
 
     except BaseException as e:
-        with open(os.path.join(output_path, 'current_settings.csv'), 'w') as f:
-            f.write(f"Error in last execution at {datetime.now()}. All current output files are invalid.\n"
+        with open(os.path.normpath(os.path.join(output_path, 'current_settings.csv')), 'w') as f:
+            f.write(f"Error in last execution at {str(datetime.now()).replace(' ', '_').replace(':', '-')}. "
+                    f"All current output files are invalid.\n"
                     f"Occurred error: {e}")
         raise e
 
@@ -241,7 +248,7 @@ def write_exact_events_csv(calculated_data, output_path, signal_names):
                 list(zip(start_times, end_times, [HUMAN_RATING_LABEL[signal] + EVENT_TYPE[cat]] * len(start_times))))
     rbdtector_events.sort(key=(lambda tpl: tpl[0]))
     with open(
-            os.path.join(output_path, 'RBDtection_Events_{}.csv'.format(os.path.basename(output_path))),
+            os.path.normpath(os.path.join(output_path, 'RBDtection_Events_{}.csv'.format(os.path.basename(output_path)))),
             'w'
     ) as csvfile:
         csv_writer = csv.writer(csvfile)

@@ -63,7 +63,7 @@ def start_multiple_psg_calculations(input_path):
     first = True
 
     for child in dirlist:
-        abs_child = os.path.join(path, child)
+        abs_child = os.path.normpath(os.path.normpath(os.path.join(path, child)))
         if os.path.isdir(abs_child):
             try:
                 df_out, df_channel_combinations = PSGController.run_rbd_detection(abs_child, abs_child)
@@ -84,10 +84,12 @@ def start_multiple_psg_calculations(input_path):
                         .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
                 except:
                     continue
+
                 df_out_combined.transpose().to_csv(
-                    os.path.join(path, f'Intermediate_combined_results.csv'))
+                    os.path.normpath(os.path.join(path, f'Intermediate_combined_results.csv')))
                 df_channel_combinations_combined.to_csv(
-                    os.path.join(path, f'Intermediate_combined_combinations.csv'))
+                    os.path.normpath(os.path.join(path, f'Intermediate_combined_combinations.csv'))
+                )
 
             except (OSError, ErrorForDisplay) as e:
                 print(f'Expectable error in file {abs_child}:\n {e}')
@@ -105,14 +107,14 @@ def start_multiple_psg_calculations(input_path):
         df_out_combined = df_out_combined \
             .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
         df_out_combined.transpose() \
-            .to_excel(os.path.join(path, f'RBDtector_combined_results_{datetime.now()}.xlsx'))
+            .to_excel(os.path.normpath(os.path.join(path, f'RBDtector_combined_results_{datetime.now()}.xlsx')))
 
     if not df_channel_combinations_combined.empty:
         df_channel_combinations_combined \
-            .to_excel(os.path.join(path, f'Channel_combinations_combined_{datetime.now()}.xlsx'))
+            .to_excel(os.path.normpath(os.path.join(path, f'Channel_combinations_combined_{datetime.now()}.xlsx')))
 
     if len(reading_problems) != 0:
-        logging.error(f'These files could not be read: {reading_problems}')
+        logging.error(f'These files could not be processed: {reading_problems}')
         print(f'These files could not be read: {reading_problems}')
     else:
         logging.info(f'All subfolders of {path} were processed without errors.')
