@@ -3,6 +3,7 @@ import tkinter.messagebox
 import tkinter.filedialog
 from tkinter import ttk
 import tkinter as tk
+import tkinter.scrolledtext as st
 from ttkthemes import ThemedTk
 
 # external
@@ -45,79 +46,13 @@ class Gui(ThemedTk):
         self.dir_selection_frame.grid(column=0, row=0, padx=10, pady=15, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.dir_selection_frame.tkraise()
 
-    def start_calculation(self, input_path):
+    def start_calculation(self, input_path, parent_window):
         self.input_path.set(input_path.get())
 
         if self.dir_option.get() == "single psg":
             _ = PSGController.run_rbd_detection(self.input_path.get(), self.input_path.get())
         elif self.dir_option.get() == "multiple psg":
-            start_multiple_psg_calculations(self.input_path.get())
-
-
-def start_multiple_psg_calculations(input_path):
-    path = input_path
-    dirlist = os.listdir(path)
-    reading_problems = []
-    df_out_combined = pd.DataFrame()
-    df_channel_combinations_combined = pd.DataFrame()
-    first = True
-
-    for child in dirlist:
-        abs_child = os.path.normpath(os.path.normpath(os.path.join(path, child)))
-        if os.path.isdir(abs_child):
-            try:
-                df_out, df_channel_combinations = PSGController.run_rbd_detection(abs_child, abs_child)
-
-                if first:
-                    df_out_combined = df_out.copy()
-                    df_channel_combinations_combined = df_channel_combinations.copy()
-
-                    first = False
-                else:
-                    df_out_combined = pd.concat([df_out_combined, df_out], axis=1)
-                    df_channel_combinations_combined = \
-                        pd.concat([df_channel_combinations_combined, df_channel_combinations])
-
-                # write intermediate combination results
-                try:
-                    df_out_combined = df_out_combined \
-                        .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
-                except:
-                    continue
-
-                df_out_combined.transpose().to_csv(
-                    os.path.normpath(os.path.join(path, f'Intermediate_combined_results.csv')))
-                df_channel_combinations_combined.to_csv(
-                    os.path.normpath(os.path.join(path, f'Intermediate_combined_combinations.csv'))
-                )
-
-            except (OSError, ErrorForDisplay) as e:
-                print(f'Expectable error in file {abs_child}:\n {e}')
-                logging.error(f'Expectable error in file {abs_child}:\n {e}')
-                logging.error(traceback.format_exc())
-                reading_problems.append(abs_child)
-                continue
-            except BaseException as e:
-                print(f'Unexpected error in file {abs_child}:\n {e}')
-                logging.error(f'Unexpected error in file {abs_child}:\n {e}')
-                logging.error(traceback.format_exc())
-                reading_problems.append(abs_child)
-                continue
-    if not df_out_combined.empty:
-        df_out_combined = df_out_combined \
-            .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
-        df_out_combined.transpose() \
-            .to_excel(os.path.normpath(os.path.join(path, f'RBDtector_combined_results_{datetime.now()}.xlsx')))
-
-    if not df_channel_combinations_combined.empty:
-        df_channel_combinations_combined \
-            .to_excel(os.path.normpath(os.path.join(path, f'Channel_combinations_combined_{datetime.now()}.xlsx')))
-
-    if len(reading_problems) != 0:
-        logging.error(f'These files could not be processed: {reading_problems}')
-        print(f'These files could not be read: {reading_problems}')
-    else:
-        logging.info(f'All subfolders of {path} were processed without errors.')
+            superdir_run(self.input_path.get(), parent_window=parent_window)
 
 
 class RadiobuttonFrame(ttk.Frame):
@@ -162,63 +97,9 @@ class DirSelectionFrame(ttk.Frame):
         start_button = ttk.Button(
             self,
             text='Start calculation',
-            command=lambda: self.controller.start_calculation(self.dir_path)
+            command=lambda: self.controller.start_calculation(self.dir_path, parent_window=parent)
         )
         start_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10)
-
-
-
-
-def start_gui():
-    # main app layout
-    root = ThemedTk(theme='scidblue')       # okay looking ones: breeze, scidblue, scidsand, yaru
-    root.title('RBDtector')
-    mainframe = ttk.Frame(root)
-    mainframe.grid(column=0, row=0, padx=10, pady=15, sticky=(tk.N, tk.W, tk.S, tk.E))
-
-    # input directory section
-    input_dir = tk.StringVar()
-    input_dir.set(_input_placeholder)
-
-    ttk.Label(
-        mainframe,
-        text='Input folder:'
-    ).grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
-
-    input_button = ttk.Button(
-        mainframe,
-        textvariable=input_dir,
-        command=lambda: _select_folder_handler(input_dir),
-    )
-    input_button.grid(row=0, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
-
-    # output directory section
-    output_dir = tk.StringVar()
-    output_dir.set(_output_placeholder)
-
-    ttk.Label(
-        mainframe,
-        text='Output folder:'
-    ).grid(row=1, column=0, padx=10, pady=5)
-
-    output_button = ttk.Button(
-        mainframe,
-        textvariable=output_dir,
-        command=lambda: _select_folder_handler(output_dir),
-    )
-    output_button.grid(row=1, column=1, padx=10, pady=5, sticky=(tk.W, tk.E))
-
-    # start button
-    ttk.Button(
-        mainframe,
-        text='Start calculation',
-        command=lambda: _trigger_calculation(input_dir.get(), output_dir.get()),
-    ).grid(row=3, column=0, columnspan=2, padx=10, pady=10)
-
-    # main loop
-    root.columnconfigure(0, weight=1)
-    mainframe.columnconfigure(1, weight=1)
-    root.mainloop()
 
 
 def _select_folder_handler(dir_text_variable):
@@ -253,6 +134,119 @@ def _trigger_calculation(input_dir, output_dir):
             title='Invalid input',
             message='Please select input and output directories'
         )
+
+
+
+def superdir_run(path, parent_window=None, dev_run: bool = False):
+
+    dirlist = os.listdir(path)
+    reading_problems = []
+    df_out_combined = pd.DataFrame()
+    df_channel_combinations_combined = pd.DataFrame()
+
+    top = None
+    error_scrolled_text = None
+
+    no_error_yet = True
+    first = True
+
+    for child in dirlist:
+        abs_child = os.path.normpath(os.path.join(path, child))
+        if os.path.isdir(abs_child):
+            try:
+                df_out, df_channel_combinations = PSGController.run_rbd_detection(abs_child, abs_child)
+
+                if first:
+                    df_out_combined = df_out.copy()
+                    df_channel_combinations_combined = df_channel_combinations.copy()
+
+                    first = False
+                else:
+                    df_out_combined = pd.concat([df_out_combined, df_out], axis=1)
+                    df_channel_combinations_combined = \
+                        pd.concat([df_channel_combinations_combined, df_channel_combinations])
+
+                # write intermediate combination results
+                try:
+                    df_out_combined = df_out_combined \
+                        .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
+                except:
+                    continue
+
+                df_out_combined.transpose().to_csv(
+                    os.path.normpath(os.path.join(path, f'Intermediate_combined_results.csv')))
+                df_channel_combinations_combined.to_csv(
+                    os.path.normpath(os.path.join(path, f'Intermediate_combined_combinations.csv')))
+
+            except (OSError, ErrorForDisplay) as e:
+                if dev_run:
+                    print(f'Expectable error in file {abs_child}:\n {e}')
+                if not dev_run:
+
+                    if no_error_yet:
+                        error_scrolled_text = create_error_scrolled_text_toplevel(error_scrolled_text, parent_window)
+                        no_error_yet = False
+
+                    error_scrolled_text.configure(state='normal')
+                    error_scrolled_text.insert('end', f'Error in file {abs_child}:\n {e}\n')
+                    error_scrolled_text.insert('end', 'Full error message can be found in log file.')
+                    error_scrolled_text.configure(state='disabled')
+
+                logging.error(f'Error in file {abs_child}:\n {e}')
+                logging.error(traceback.format_exc())
+                reading_problems.append(abs_child)
+                continue
+
+            except BaseException as e:
+                if dev_run:
+                    print(f'Unexpected error in file {abs_child}:\n {e}')
+
+                if not dev_run:
+
+                    if no_error_yet:
+                        error_scrolled_text = create_error_scrolled_text_toplevel(error_scrolled_text, parent_window)
+                        no_error_yet = False
+
+                    error_scrolled_text.configure(state='normal')
+                    error_scrolled_text.insert('end', f'Unexpected error in file {abs_child}:\n {e}\n')
+                    error_scrolled_text.insert('end', 'Full error message in log file. Please contact developer.')
+                    error_scrolled_text.configure(state='disabled')
+
+                logging.error(f'Unexpected error in file {abs_child}:\n {e}')
+                logging.error(traceback.format_exc())
+                reading_problems.append(abs_child)
+                continue
+
+    if not df_out_combined.empty:
+        df_out_combined = df_out_combined \
+            .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
+    df_out_combined.transpose() \
+        .to_excel(os.path.normpath(
+        os.path.join(path,
+                     f'RBDtector_combined_results_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
+    df_channel_combinations_combined \
+        .to_excel(os.path.normpath(
+        os.path.join(path,
+                     f'Channel_combinations_combined_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
+    if len(reading_problems) != 0:
+        logging.error(f'These files could not be processed: {reading_problems}')
+        print(f'These files could not be read: {reading_problems}')
+    else:
+        logging.info(f'All subfolders of {path} were processed without errors.')
+
+
+def create_error_scrolled_text_toplevel(error_scrolled_text, parent_window):
+    top = tk.Toplevel(parent_window)
+    tk.Label(top,
+             text="Errors in the following PSGs:"
+             ).pack(side='top', fill='both', expand=True)
+    error_scrolled_text = st.ScrolledText(
+        top,
+        width=30,
+        height=40
+    )
+    error_scrolled_text.pack(side="top", fill='both', expand=True)
+    return error_scrolled_text
 
 
 if __name__ == '__main__':

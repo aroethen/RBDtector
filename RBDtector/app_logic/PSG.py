@@ -2,7 +2,7 @@
 import os
 from typing import Tuple
 
-from app_logic.dataframe_creation import DataframeCreation
+from app_logic import dataframe_creation
 from data_structures.annotation_data import AnnotationData
 from data_structures.raw_data import RawData
 from input_handling import input_reader as ir
@@ -19,7 +19,7 @@ import pandas as pd
 
 # DEFINITIONS
 from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS
-from util.settings import Settings
+from util import settings
 
 # Dev dependencies
 import matplotlib.pyplot as plt
@@ -44,7 +44,7 @@ class PSG:
                      f'BASELINE_NAME = {str(BASELINE_NAME)}\n'
                      f'HUMAN_RATING_LABEL = {str(HUMAN_RATING_LABEL)}\n'
                      f'EVENT_TYPE = {str(EVENT_TYPE)}\n'
-                     f'{str(Settings.to_string())}'
+                     f'{str(settings.settings_as_string())}'
                      )
         logging.debug('New PSG Object created')
 
@@ -106,7 +106,7 @@ class PSG:
         sample_length = len(raw_data.get_data_channels()['EMG'].get_signal())
 
         # prepare DataFrame with DatetimeIndex
-        preliminary_idx = DataframeCreation.create_datetime_index(start_datetime, sample_rate, sample_length)
+        preliminary_idx = dataframe_creation.create_datetime_index(start_datetime, sample_rate, sample_length)
         # df = pd.DataFrame(index=preliminary_idx)
 
         # add sleep profile to df
@@ -132,8 +132,8 @@ class PSG:
 
             # Resample to 256 Hz and add to df
             sample_rate = raw_data.get_data_channels()[signal_type].get_sample_rate()
-            df[signal_type] = DataframeCreation.signal_to_hz_rate_datetimeindexed_series(
-                Settings.RATE, sample_rate, signal_array, signal_type, start_datetime)
+            df[signal_type] = dataframe_creation.signal_to_hz_rate_datetimeindexed_series(
+                settings.RATE, sample_rate, signal_array, signal_type, start_datetime)
                 # [start_of_first_full_sleep_phase:]
 
         # add global artifacts to df
@@ -285,6 +285,7 @@ class PSG:
 
             for signal_name in signal_names:
 
+                # TODO: move into settings
                 MIN_REM_BLOCK_LENGTH_IN_S = 150
                 MIN_BASELINE_VOLTAGE = 0.05
                 baseline_time_window_in_s = 30
@@ -297,7 +298,7 @@ class PSG:
                 # detect baseline artifacts
                 baseline_artifact = df_signals.loc[is_rem_series, signal_name].pow(2) \
                     .rolling(str(baseline_artifact_window_in_s) + 'S',
-                             min_periods=Settings.RATE * baseline_artifact_window_in_s) \
+                             min_periods=settings.RATE * baseline_artifact_window_in_s) \
                     .mean() \
                     .apply(np.sqrt) \
                     .lt(MIN_BASELINE_VOLTAGE)
@@ -321,7 +322,7 @@ class PSG:
                         # find baseline
                         baseline_in_rolling_window = artifact_free_rem_block.pow(2)\
                             .rolling(str(baseline_time_window_in_s) + 'S',
-                                     min_periods=Settings.RATE * baseline_time_window_in_s)\
+                                     min_periods=settings.RATE * baseline_time_window_in_s)\
                             .mean() \
                             .apply(np.sqrt)
 
@@ -386,7 +387,7 @@ class PSG:
             df = PSG.find_increased_activity(
                 df, signal_name,
                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch'],
-                Settings.COUNT_BASED_ACTIVITY)
+                settings.COUNT_BASED_ACTIVITY)
 
             # find increased sustained activity
             df = PSG.find_increased_sustained_activity(df, signal_name)
@@ -405,7 +406,7 @@ class PSG:
                 df = PSG.find_increased_activity(
                     df, signal_name,
                     artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch'],
-                    Settings.COUNT_BASED_ACTIVITY)
+                    settings.COUNT_BASED_ACTIVITY)
                 df = PSG.find_increased_sustained_activity(df, signal_name)
 
             # find phasic activity and miniepochs
@@ -414,6 +415,7 @@ class PSG:
                 df[signal_name + '_phasic_miniepochs'],
                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch'])
 
+            # find any activity and miniepochs
             df, amplitudes_and_durations_dict[signal_name]['non-tonic'] = PSG.find_any_activity_and_miniepochs(df, signal_name)
             df[signal_name + '_any_miniepochs'] = np.logical_and(
                 df[signal_name + '_any_miniepochs'],
@@ -502,15 +504,15 @@ class PSG:
         sleep_profile = sleep_profile.loc[idx[0]:idx[-1]]
         sleep_profile.iloc[-1] = SLEEP_CLASSIFIERS['artifact']
 
-        # resample sleep profile from 2Hz(30s intervals) to Settings.RATE Hz, fill all entries with the correct
+        # resample sleep profile from 2Hz(30s intervals) to settings.RATE Hz, fill all entries with the correct
         # sleeping phase and add it as column to dataframe
         # This cuts off all samples that do not have a correlating sleeping phase
-        resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
+        resampled_sleep_profile = sleep_profile.resample(str(1000 / settings.RATE) + 'ms').ffill()
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
 
         df['is_REM'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['REM'].lower()
 
-        if Settings.SNORE or Settings.EX:
+        if settings.SNORE or settings.EX:
             df['is_SNORE'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
             df['is_REM'] = np.logical_or(df['is_REM'], df['is_SNORE'])
 
@@ -564,7 +566,7 @@ class PSG:
             duration = non_tonic_sustained_activity \
                 .groupby([non_tonic_sustained_activity.diff().ne(0).cumsum(), non_tonic_sustained_activity]) \
                 .size() \
-                .divide(Settings.RATE)
+                .divide(settings.RATE)
             duration = duration.loc[idx[:, True]]
             mean_duration = duration.mean()
         else:
@@ -589,7 +591,7 @@ class PSG:
         continuous_phasic_sustained_activity = df[signal_type + '_sustained_activity'] \
             .groupby([df[signal_type + '_sustained_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .le(Settings.RATE * 5)
+            .le(settings.RATE * 5)
         df[signal_type + '_phasic'] = continuous_phasic_sustained_activity & df[signal_type + '_sustained_activity']
 
         if df[signal_type + '_phasic'].any():
@@ -610,7 +612,7 @@ class PSG:
             duration = df[signal_type + '_phasic']\
                 .groupby([df[signal_type + '_phasic'].diff().ne(0).cumsum(), df[signal_type + '_phasic']])\
                 .size()\
-                .divide(Settings.RATE)
+                .divide(settings.RATE)
             duration = duration.loc[idx[:, True]]
             mean_duration = duration.mean()
         else:
@@ -691,7 +693,7 @@ class PSG:
         tonic_in_30s = sustained_signal \
             .resample('30s') \
             .sum() \
-            .gt((Settings.RATE * 30) / 2)
+            .gt((settings.RATE * 30) / 2)
         df[signal_type + '_tonic'] = tonic_in_30s
         df[signal_type + '_tonic'] = df[signal_type + '_tonic'].ffill()
         df[signal_type + '_tonic'] = np.logical_and(df[signal_type + '_tonic'], artifact_free_rem_sleep_epochs)
@@ -718,14 +720,14 @@ class PSG:
         continuous_vals_gt_min_start = df[signal_type + '_increased_activity'] \
             .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .gt(Settings.RATE * Settings.MIN_SUSTAINED)
+            .gt(settings.RATE * settings.MIN_SUSTAINED)
         min_sustained_activity = \
             continuous_vals_gt_min_start & df[signal_type + '_increased_activity']
 
         continuous_vals_gt_min_end = df[signal_type + '_increased_activity'] \
             .groupby([df[signal_type + '_increased_activity'].diff().ne(0).cumsum()]) \
             .transform('size') \
-            .lt(Settings.RATE * Settings.MAX_GAP_SIZE)
+            .lt(settings.RATE * settings.MAX_GAP_SIZE)
         max_tolerable_gaps = \
             continuous_vals_gt_min_end & ~df[signal_type + '_increased_activity']
 
@@ -795,19 +797,19 @@ class PSG:
         if count_based_activity:
             series_to_resample = df[signal_type].astype(int)
             increased_in_point05s = series_to_resample \
-                .resample(Settings.CHUNK_SIZE) \
+                .resample(settings.CHUNK_SIZE) \
                 .sum() \
                 .apply(lambda x: x > 3)
-            increased_in_point05s = increased_in_point05s.resample(str(1000 / Settings.RATE) + 'ms').ffill()
+            increased_in_point05s = increased_in_point05s.resample(str(1000 / settings.RATE) + 'ms').ffill()
             df[signal_type + '_increased_activity'] = increased_in_point05s
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity']
 
-            if Settings.WITH_OFFSET:
+            if settings.WITH_OFFSET:
                 increased_in_point05s_with_offset = series_to_resample \
-                    .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
+                    .resample(settings.CHUNK_SIZE, offset=settings.OFFSET_SIZE) \
                     .sum() \
                     .apply(lambda x: x > 3)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / Settings.RATE) + 'ms').ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / settings.RATE) + 'ms').ffill()
                 df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
                 df[signal_type + '_increased_activity'] = np.logical_or(
                     df[signal_type + '_increased_activity'],
@@ -818,23 +820,23 @@ class PSG:
             valid_signal = artifact_free_rem_sleep_miniepoch * df[signal_type]
             valid_signal = valid_signal.pow(2)
             increased_in_point05s = valid_signal \
-                .resample(Settings.CHUNK_SIZE) \
+                .resample(settings.CHUNK_SIZE) \
                 .mean() \
                 .apply(np.sqrt)
 
-            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(str(1000 / Settings.RATE) + 'ms').ffill()
+            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(str(1000 / settings.RATE) + 'ms').ffill()
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].ffill()
             df[signal_type + '_increased_activity'] = \
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
 
-            if Settings.WITH_OFFSET:
+            if settings.WITH_OFFSET:
                 valid_signal = artifact_free_rem_sleep_miniepoch * df[signal_type]
                 valid_signal = valid_signal.pow(2)
                 increased_in_point05s_with_offset = valid_signal \
-                    .resample(Settings.CHUNK_SIZE, offset=Settings.OFFSET_SIZE) \
+                    .resample(settings.CHUNK_SIZE, offset=settings.OFFSET_SIZE) \
                     .mean() \
                     .apply(np.sqrt)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / Settings.RATE) + 'ms').ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / settings.RATE) + 'ms').ffill()
                 increased_activity_with_offset = pd.Series(increased_in_point05s_with_offset, index=df.index)
                 increased_activity_with_offset = \
                     increased_activity_with_offset > (2 * df[signal_type + '_baseline'])
@@ -920,7 +922,7 @@ class PSG:
         continuuos_rem_ge_min_block_length = is_rem_series \
             .groupby(is_rem_series.diff().ne(0).cumsum()) \
             .transform('size') \
-            .ge(Settings.RATE * MIN_REM_BLOCK_LENGTH_IN_S)
+            .ge(settings.RATE * MIN_REM_BLOCK_LENGTH_IN_S)
         min_rem_block = \
             continuuos_rem_ge_min_block_length & is_rem_series
         rem_block_counter = 0

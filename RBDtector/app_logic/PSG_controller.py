@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 from util.definitions import SLEEP_CLASSIFIERS
-from util.settings import Settings
+from util import settings
 from app_logic.PSG import PSG
 from output import csv_writer
 
@@ -17,17 +17,17 @@ class PSGController:
     def run_rbd_detection(input_path: str, output_path: str):
         psg = PSG(input_path, output_path)
 
-        if Settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
+        if settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
             psg.use_pickled_df_as_calculated_data(os.path.join(input_path, 'pickledDF'))
         else:
-            raw_data, annotation_data = psg.read_input(Settings.SIGNALS_TO_EVALUATE.copy(),
-                                                       read_human_rating=Settings.HUMAN_ARTIFACTS,
-                                                       read_baseline=Settings.HUMAN_BASELINE)
+            raw_data, annotation_data = psg.read_input(settings.SIGNALS_TO_EVALUATE.copy(),
+                                                       read_human_rating=settings.HUMAN_ARTIFACTS,
+                                                       read_baseline=settings.HUMAN_BASELINE)
 
             df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
-                psg.prepare_evaluation(raw_data, annotation_data, Settings.SIGNALS_TO_EVALUATE.copy(), Settings.FLOW)
+                psg.prepare_evaluation(raw_data, annotation_data, settings.SIGNALS_TO_EVALUATE.copy(), settings.FLOW)
 
-            if Settings.EX:
+            if settings.EX:
                 ex_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['EX'].lower()
                 is_global_artifact_series = is_global_artifact_series | ex_series
 
@@ -42,7 +42,7 @@ class PSGController:
             for signal_name in signal_names:
                 signal_artifacts[signal_name + '_signal_artifact'] = 0
 
-            if Settings.HUMAN_ARTIFACTS:
+            if settings.HUMAN_ARTIFACTS:
                 human_signal_artifacts = psg.prepare_human_signal_artifacts(
                      annotation_data, df_signals.index, signal_names)
                 signal_artifacts = pd.DataFrame(index=df_signals.index)
@@ -50,7 +50,7 @@ class PSGController:
                     signal_artifacts[signal_name + '_signal_artifact'] = \
                         human_signal_artifacts[signal_name + '_human_artifact']
 
-            if Settings.SNORE:
+            if settings.SNORE:
                 if 'EMG' in signal_names:
                     snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
                     ex_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['EX'].lower()
@@ -62,7 +62,7 @@ class PSGController:
                 signal_names)
 
             # FIND BASELINE
-            if Settings.HUMAN_BASELINE:
+            if settings.HUMAN_BASELINE:
                 df_baselines, _ = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
                                                   use_human_baselines=True, annotation_data=annotation_data)
             else:

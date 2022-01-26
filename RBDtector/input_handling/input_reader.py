@@ -3,7 +3,6 @@ import os
 import glob
 import datetime
 
-# TODO: Test glob portability to windows - otherwise consider using os.listdir + fnmatch or pathlib.Path().glob
 from typing import Tuple, Dict, List
 import logging
 
@@ -17,7 +16,7 @@ from data_structures.raw_data_channel import RawDataChannel
 from data_structures.annotation_data import AnnotationData
 from util.error_for_display import ErrorForDisplay
 from util.definitions import FILE_FINDER
-from util.settings import Settings
+from util import settings
 
 
 def read_input(directory_name: str, signals_to_load: List[str] = None,
@@ -82,7 +81,7 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
 
         if file_type == 'sleep_profile':
             if len(tmp_files) == 2:
-                if Settings.SNORE or Settings.EX:
+                if settings.SNORE or settings.EX:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' in file_str]
                 else:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' not in file_str]

@@ -12,7 +12,7 @@ from RBDtector.app_logic.PSG import PSG
 
 from RBDtector.util.stats_definitions import FILE_FINDER, SIGNALS_TO_EVALUATE, stats_definitions_as_string
 from RBDtector.util.definitions import EVENT_TYPE, HUMAN_RATING_LABEL, definitions_as_string
-from RBDtector.util.settings import Settings
+from RBDtector.util import settings
 from RBDtector.util.stats_settings import StatsSettings
 
 
@@ -83,7 +83,7 @@ def generate_descripive_statistics(dirname='/home/annika/WORK/RBDtector/Non-Codi
 
     # Write last settings and definitions to a text file
     with open(os.path.join(dirname, f'settings_and_definitions_{datetime.now()}'), 'w') as f:
-        f.write(Settings.to_string())
+        f.write(Settings.settings_as_string())
         f.write(StatsSettings.to_string())
         f.write(definitions_as_string())
         f.write(stats_definitions_as_string())
@@ -167,7 +167,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
 
                     # if human artifacts were not considered in RBDtection,
                     # use the global artifact-free-rem-sleep for total epoch count
-                    if Settings.HUMAN_ARTIFACTS:
+                    if settings.HUMAN_ARTIFACTS:
                         # local signal artifacts
                         artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_epoch']
                         epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
@@ -182,7 +182,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
 
                     # if human artifacts were not considered in RBDtection,
                     # use the global artifact-free-rem-sleep for total epoch count
-                    if Settings.HUMAN_ARTIFACTS:
+                    if settings.HUMAN_ARTIFACTS:
                         # local signal artifacts
                         artifact_free_column = evaluation_df[signal + '_artifact_free_rem_sleep_miniepoch']
                         epoch_count = artifact_free_column.sum() / (Settings.RATE * epoch_length)
@@ -333,7 +333,7 @@ def generate_evaluation_dataframe(annotation_data, rbdtector_data, raters):
 
     signal_artifacts = None
 
-    if Settings.HUMAN_ARTIFACTS:
+    if settings.HUMAN_ARTIFACTS:
         # find human artifacts
         human_signal_artifacts = PSG.prepare_human_signal_artifacts(annotation_data, df.index, signal_names)
         signal_artifacts = pd.DataFrame(index=df.index)
@@ -452,14 +452,14 @@ def add_global_artifacts_to_df(df, annotation_data):
     for label, on, off in zip(arousals['event'], arousals['event_onset'], arousals['event_end_time']):
         df.loc[on:off, ['artifact_event']] = True
 
-    if Settings.FLOW:
+    if settings.FLOW:
         flow_events = annotation_data.flow_events[1]
         df['flow_event'] = pd.Series(False, index=df.index)
         for label, on, off in zip(flow_events['event'], flow_events['event_onset'], flow_events['event_end_time']):
             df.loc[on:off, ['flow_event']] = True
 
     # add conditional column 'is_artifact'
-    if Settings.FLOW:
+    if settings.FLOW:
         df['is_artifact'] = np.logical_or(df['artifact_event'], df['flow_event'])
     else:
         df['is_artifact'] = df['artifact_event']
@@ -479,12 +479,12 @@ def generate_sleep_profile_df(annotation_data) -> pd.DataFrame:
 
     # resample sleep profile from 30s intervals to 256 Hz, fill all entries with the correct sleeping phase
     # and add it as column to dataframe
-    resampled_sleep_profile = sleep_profile.resample(str(1000 / Settings.RATE) + 'ms').ffill()
+    resampled_sleep_profile = sleep_profile.resample(str(1000 / settings.RATE) + 'ms').ffill()
     # df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
 
     start_datetime = datetime.strptime(annotation_data.sleep_profile[0]['Start Time'], '%d.%m.%Y %H:%M:%S')
     end_datetime = resampled_sleep_profile.index.max()
-    idx = pd.date_range(start_datetime, end_datetime, freq=str(1000 / Settings.RATE) + 'ms')
+    idx = pd.date_range(start_datetime, end_datetime, freq=str(1000 / settings.RATE) + 'ms')
     df = pd.DataFrame(index=idx)
     df['is_REM'] = resampled_sleep_profile['sleep_phase'] == "REM"
     return df

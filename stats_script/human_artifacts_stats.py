@@ -9,7 +9,7 @@ from RBDtector.util.stats_definitions import FILE_FINDER, SIGNALS_TO_EVALUATE, s
 from RBDtector.util.definitions import EVENT_TYPE, HUMAN_RATING_LABEL, definitions_as_string
 from app_logic.PSG import PSG
 from input_handling import input_reader
-from util.settings import Settings
+from util import settings
 from util.stats_settings import StatsSettings
 
 
@@ -85,14 +85,13 @@ def generate_signal_artifact_detection_statistics(dirname='/home/annika/WORK/RBD
 
     # Write last settings and definitions to a text file
     with open(os.path.join(dirname, f'settings_and_definitions_{datetime.now()}'), 'w') as f:
-        f.write(Settings.to_string())
+        f.write(settings.settings_as_string())
         f.write(StatsSettings.to_string())
         f.write(definitions_as_string())
         f.write(stats_definitions_as_string())
 
 
 def add_summary_column(output_df, raters):
-
 
     # prepare definitions and index slice for multiindexing
     signals = SIGNALS_TO_EVALUATE.copy()
@@ -145,7 +144,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
 
     signals = SIGNALS_TO_EVALUATE.copy()
 
-    artifact_free_rem_miniepochs = evaluation_df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
+    artifact_free_rem_miniepochs = evaluation_df['artifact_free_rem_sleep_miniepoch'].sum() / (settings.RATE * 3)
 
     idx = pd.IndexSlice
     output_df.loc[idx[:, 'Subject'], subject] = subject
@@ -163,7 +162,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
         shared_pos = \
             (evaluation_df[signal + r1 + signal_artifact]
              & evaluation_df[signal + r2 + signal_artifact]) \
-                .sum() / (Settings.RATE * epoch_length)
+                .sum() / (settings.RATE * epoch_length)
         output_df.loc[(signal, 'shared artifact'), subject] = shared_pos
 
         shared_neg = \
@@ -172,11 +171,11 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
                             (~evaluation_df[signal + r1 + signal_artifact])
                             & (~evaluation_df[signal + r2 + signal_artifact])
                     ) & artifact_free_column
-            ).sum() / (Settings.RATE * epoch_length)
+            ).sum() / (settings.RATE * epoch_length)
         output_df.loc[(signal, 'shared non-artifact'), subject] = shared_neg
 
         r1_abs_pos = \
-            evaluation_df[signal + r1 + signal_artifact].sum() / (Settings.RATE * epoch_length)
+            evaluation_df[signal + r1 + signal_artifact].sum() / (settings.RATE * epoch_length)
 
         output_df.loc[(signal, raters[0] + ' abs artifact'), subject] = r1_abs_pos
 
@@ -187,7 +186,7 @@ def fill_in_comparison_data(output_df, evaluation_df, subject, raters):
 
         r2_abs_pos = \
             evaluation_df[signal + r2 + signal_artifact] \
-                .sum() / (Settings.RATE * epoch_length)
+                .sum() / (settings.RATE * epoch_length)
         output_df.loc[(signal, raters[1] + ' abs artifact'), subject] = r2_abs_pos
 
         output_df.loc[(signal, raters[1] + ' % artifact'), subject] = \

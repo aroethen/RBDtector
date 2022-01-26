@@ -11,7 +11,7 @@ from typing import Tuple, Dict, List
 import logging
 
 from util.definitions import HUMAN_RATING_LABEL, EVENT_TYPE, definitions_as_string
-from util.settings import Settings
+from util import settings
 
 
 def write_output(output_path,
@@ -56,7 +56,7 @@ def write_output(output_path,
 
         with open(os.path.normpath(os.path.join(output_path, 'current_settings.csv')), 'w') as f:
             f.write(f"Date: {str(datetime.now()).replace(' ', '_').replace(':', '-')}"
-                    f"{Settings.to_string()}"
+                    f"{settings.settings_as_string()}"
                     f"{definitions_as_string()}"
                     )
 
@@ -100,17 +100,18 @@ def create_channel_combinations_df(calculated_data, signal_names, subject_name):
 
     all_combinations_as_string = [','.join(x) for x in all_combinations]
 
+    # TODO: Rename and document
     blubb = [[qualities[j] for j in i] for i in all_combinations]
     bla = [np.logical_or.reduce(i) for i in blubb]
     df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, bla)), index=df.index)
 
     sum_of_channel_combinations = df_channel_combinations.loc[:, :].sum(axis=0)
     epoch_length = 3
-    epoch_count = df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * epoch_length)
+    epoch_count = df['artifact_free_rem_sleep_miniepoch'].sum() / (settings.RATE * epoch_length)
     df_out = pd.DataFrame(sum_of_channel_combinations.values,
                           columns=[subject_name, ],
                           index=all_combinations_as_string).transpose()
-    df_out = (df_out / (Settings.RATE * epoch_length)) * 100 / epoch_count
+    df_out = (df_out / (settings.RATE * epoch_length)) * 100 / epoch_count
 
     return df_out
 
@@ -156,12 +157,12 @@ def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and
 
     df_out.loc[idx[:, 'Subject ID'], subject_name] = subject_name
 
-    df_out.loc[idx['Global', 'Global_REM_MiniEpochs'], subject_name] = df['is_REM'].sum() / (Settings.RATE * 3)
-    df_out.loc[idx['Global', 'Global_REM_MacroEpochs'], subject_name] = df['is_REM'].sum() / (Settings.RATE * 30)
+    df_out.loc[idx['Global', 'Global_REM_MiniEpochs'], subject_name] = df['is_REM'].sum() / (settings.RATE * 3)
+    df_out.loc[idx['Global', 'Global_REM_MacroEpochs'], subject_name] = df['is_REM'].sum() / (settings.RATE * 30)
     df_out.loc[idx['Global', 'Global_REM_MiniEpochs_WO-Artifacts'], subject_name] = \
-        df['artifact_free_rem_sleep_miniepoch'].sum() / (Settings.RATE * 3)
+        df['artifact_free_rem_sleep_miniepoch'].sum() / (settings.RATE * 3)
     df_out.loc[idx['Global', 'Global_REM_MacroEpochs_WO-Artifacts'], subject_name] = \
-        df['artifact_free_rem_sleep_epoch'].sum() / (Settings.RATE * 30)
+        df['artifact_free_rem_sleep_epoch'].sum() / (settings.RATE * 30)
 
     for signal_name in signal_names:
 
@@ -171,11 +172,11 @@ def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and
 
         df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MiniEpochs_WO-Artifacts'],
                    subject_name] = df[signal_name + '_artifact_free_rem_sleep_miniepoch'].sum() \
-                                   / (Settings.RATE * 3)
+                                   / (settings.RATE * 3)
 
         df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MacroEpochs_WO-Artifacts'],
                    subject_name] = df[signal_name + '_artifact_free_rem_sleep_epoch'].sum() \
-                                   / (Settings.RATE * 30)
+                                   / (settings.RATE * 30)
 
         for category in ['tonic', 'phasic', 'any']:
 
@@ -194,7 +195,7 @@ def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and
 
             df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs'],
                        subject_name] = df[signal_name + '_' + category + miniepochs].sum() \
-                                       / (Settings.RATE * epoch_length)
+                                       / (settings.RATE * epoch_length)
             abs_count = \
                 df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs'],
                 subject_name]

@@ -1,24 +1,53 @@
 #!/usr/bin/env python
 
 # python modules
+import configparser
 import logging
 import os
 import sys
 import traceback
-from datetime import datetime
-
-import pandas as pd
 
 # internal modules
 from gui import gui
 from app_logic.PSG_controller import PSGController
-from app_logic.PSG import PSG
-from util.error_for_display import ErrorForDisplay
-from util.settings import Settings
+from util import settings
+from gui.gui import superdir_run
 
 DEV = False
 
 SUPERDIR = True
+
+
+def read_config():
+    config_exists = False
+    try:
+        config = configparser.ConfigParser()
+        config.read(os.path.join(os.path.dirname(os.getcwd()), 'config.ini'))
+        config_exists = True
+
+        try:
+            # Signal names of EMG channels in EDF files to be evaluated for RSWA
+            config_signals_to_evaluate = config.get('Settings', 'SIGNALS_TO_EVALUATE', fallback=None)
+            if config_signals_to_evaluate:
+                settings.SIGNALS_TO_EVALUATE = [x.strip() for x in config_signals_to_evaluate.split(',')]
+
+            # Artifact types to be excluded from evaluation
+            settings.FLOW = config.getboolean('Settings', 'FLOW', fallback=settings.FLOW)
+            settings.HUMAN_ARTIFACTS = config.getboolean('Settings', 'HUMAN_ARTIFACTS',
+                                                         fallback=settings.HUMAN_ARTIFACTS)
+            settings.SNORE = config.getboolean('Settings', 'SNORE', fallback=settings.SNORE)
+            settings.EX = config.getboolean('Settings', 'EX', fallback=settings.EX)
+
+            # Use manually defined static baselines from a baseline file instead of calculating adaptive baseline levels
+            settings.HUMAN_BASELINE = config.getboolean('Settings', 'HUMAN_BASELINE',
+                                                        fallback=settings.HUMAN_BASELINE)
+        except configparser.NoSectionError as e:
+            logging.info("Section 'Settings' not found in config file.")
+
+    except EnvironmentError:
+        config_exists = False
+        logging.info('No config file found. Default settings are used.')
+
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -38,87 +67,23 @@ if __name__ == "__main__":
             path = 'D:/EMG/testifer'
             # path = '/localdata/EMG/EMG-Scorings iRBD Nora'
 
-            # path = '/localdata/EMG/Data_Niels'
-            dirlist = os.listdir(path)
-            reading_problems = []
-            df_out_combined = pd.DataFrame()
-            df_channel_combinations_combined = pd.DataFrame()
-            first = True
+            superdir_run(path, dev_run=True)
 
-            for child in dirlist:
-            # for abs_child in ['/media/SharedData/EMG/morePSG-Data/iRBD0065', '/media/SharedData/EMG/morePSG-Data/iRBD0067', '/media/SharedData/EMG/morePSG-Data/iRBD0113', '/media/SharedData/EMG/morePSG-Data/iRBD0216', '/media/SharedData/EMG/morePSG-Data/iRBD0223', '/media/SharedData/EMG/morePSG-Data/iRBD0268', '/media/SharedData/EMG/morePSG-Data/iRBD0273', '/media/SharedData/EMG/morePSG-Data/iRBD0310']:
-                abs_child = os.path.normpath(os.path.join(path, child))
-                if os.path.isdir(abs_child):
-                    # if 'comparison_pickle' not in os.listdir(abs_child):
-                    try:
-                        df_out, df_channel_combinations = PSGController.run_rbd_detection(abs_child, abs_child)
-
-                        if first:
-                            df_out_combined = df_out.copy()
-                            df_channel_combinations_combined = df_channel_combinations.copy()
-
-                            first = False
-                        else:
-                            df_out_combined = pd.concat([df_out_combined, df_out], axis=1)
-                            df_channel_combinations_combined = \
-                                pd.concat([df_channel_combinations_combined, df_channel_combinations])
-
-                        # write intermediate combination results
-                        try:
-                            df_out_combined = df_out_combined \
-                                .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
-                        except:
-                            continue
-                        df_out_combined.transpose().to_csv(
-                            os.path.normpath(os.path.join(path, f'Intermediate_combined_results.csv')))
-                        df_channel_combinations_combined.to_csv(
-                            os.path.normpath(os.path.join(path, f'Intermediate_combined_combinations.csv')))
-
-                    except (OSError, ErrorForDisplay) as e:
-                        print(f'Expectable error in file {abs_child}:\n {e}')
-                        logging.error(f'Expectable error in file {abs_child}:\n {e}')
-                        logging.error(traceback.format_exc())
-                        reading_problems.append(abs_child)
-                        continue
-                    except BaseException as e:
-                        print(f'Unexpected error in file {abs_child}:\n {e}')
-                        logging.error(f'Unexpected error in file {abs_child}:\n {e}')
-                        logging.error(traceback.format_exc())
-                        reading_problems.append(abs_child)
-                        continue
-
-            if not df_out_combined.empty:
-                df_out_combined = df_out_combined\
-                    .reindex(['Signal', 'Global', 'EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.'], level=0)
-
-            df_out_combined.transpose()\
-                .to_excel(os.path.normpath(
-                os.path.join(path, f'RBDtector_combined_results_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
-
-            df_channel_combinations_combined\
-                .to_excel(os.path.normpath(
-                os.path.join(path, f'Channel_combinations_combined_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
-
-            if len(reading_problems) != 0:
-                logging.error(f'These files could not be processed: {reading_problems}')
-                print(f'These files could not be read: {reading_problems}')
         else:
             # path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'
             path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs/iRBD0216'
             _ = PSGController.run_rbd_detection(path, path)
 
     else:
+        try:
+            read_config()
 
-        rbd_gui = gui.Gui()
-        rbd_gui.mainloop()
-        # try:
-        #     rbd_gui = gui.Gui()
-        #     rbd_gui.mainloop()
-        #     # gui.start_gui()
-        # except BaseException as e:
-        #     logging.error(f'Programm terminated with unexpected error:\n {e}')
-        #     logging.error(traceback.format_exc())
-        #     print(f'An unexpected error occurred. Error message can be found in log file. Please contact the developer.')
-        #     sys.exit(1)
+            rbd_gui = gui.Gui()
+            rbd_gui.mainloop()
+        except BaseException as e:
+            logging.error(f'Program terminated with unexpected error:\n {e}')
+            logging.error(traceback.format_exc())
+            print(f'An unexpected error occurred. Error message can be found in log file. Please contact the developer.')
+            sys.exit(1)
 
     # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code
