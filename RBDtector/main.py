@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     if DEV:
         if SUPERDIR:
-            # path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
+            path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
             # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
             # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
             path = 'D:/EMG/testifer'

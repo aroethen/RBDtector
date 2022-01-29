@@ -5,7 +5,7 @@ import pandas as pd
 from util.definitions import SLEEP_CLASSIFIERS
 from util import settings
 from app_logic.PSG import PSG
-from output import csv_writer
+from output_handling import csv_writer
 
 import matplotlib.pyplot as plt
 

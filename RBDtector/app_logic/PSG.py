@@ -6,9 +6,6 @@ from app_logic import dataframe_creation
 from data_structures.annotation_data import AnnotationData
 from data_structures.raw_data import RawData
 from input_handling import input_reader as ir
-from output import csv_writer
-from util.error_for_display import ErrorForDisplay
-from visualization.dev_plots import dev_plots
 
 # python modules
 import logging
@@ -20,9 +17,6 @@ import pandas as pd
 # DEFINITIONS
 from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS
 from util import settings
-
-# Dev dependencies
-import matplotlib.pyplot as plt
 
 
 class PSG:
@@ -75,25 +69,6 @@ class PSG:
 
         self._calculated_data = pd.read_pickle(pickle_path)
         logging.info(f'Used pickled calculation dataframe from {pickle_path}')
-
-    def read_input(self, signals_to_evaluate, read_human_rating, read_baseline=False):
-        """
-        Read input data from ``input_path`` as specified at PSG object instantiation
-
-        :param signals_to_evaluate: Names of EMG signals as specified in EDF signal header
-        :return raw_data, annotation_data: RawData filled with EDF data and AnnotationData filled with the given
-        text file data
-        """
-        logging.debug('PSG starting to read input')
-
-        raw_data, annotation_data = ir.read_input(directory_name=self._input_path,
-                                                  signals_to_load=signals_to_evaluate.copy(),
-                                                  read_human_rating=read_human_rating,
-                                                  read_baseline=read_baseline)
-
-        logging.debug('PSG finished reading input')
-
-        return raw_data, annotation_data
 
     @staticmethod
     def prepare_evaluation(raw_data, annotation_data, signal_names, assess_flow_events):
@@ -351,10 +326,6 @@ class PSG:
                 for block_number in block_baselines.index.values:
                     rem_block = df_signals.loc[all_rem_sleep_numbered == block_number, signal_name]
                     df_baselines.loc[rem_block.index, signal_name + '_baseline'] = block_baselines[block_number]
-
-
-                # PSG._brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals,
-                #                     is_rem_series, min_rem_block, signal_name, signal_names, small_rem_pieces)
 
         return df_baselines, df_baseline_artifacts
 
@@ -628,51 +599,6 @@ class PSG:
         df[signal_type + '_phasic_miniepochs'] = df[signal_type + '_phasic_miniepochs'].ffill()
 
         return df, {'max_mean': max_mean, 'mean_duration': mean_duration}
-
-
-    @staticmethod
-    def _brief_plotting(annotation_data, artifact_free_rem_sleep_per_signal, df_baselines, df_signals, is_rem_series,
-                        min_rem_block, signal_name, signal_names, small_rem_pieces):
-        ### PLOTTIES ###
-        # for signal_type in signal_names:
-        #     # add signal type baseline column
-        #     df_baselines[signal_type + '_human_baseline'] = PSG.add_signal_baseline_to_df(df_signals, annotation_data,
-        #                                                                                   signal_type)
-
-        fig, ax = plt.subplots()
-        # REM PHASES
-        # ax.fill_between(df_signals.index.values, is_rem_series * (-1000), is_rem_series * 1000,
-        #                 facecolor='lightblue', label="is_REM", alpha=0.7)
-
-        # ax.fill_between(df_signals.index.values,
-        #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
-        #                 * (-750),
-        #                 artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']
-        #                 * 750,
-        #                 facecolor='#e1ebe8', label="Artefact-free REM sleep miniepoch", alpha=0.7)
-        ax.fill_between(df_signals.index.values, df_signals[signal_name + '_phasic'] * (-25),
-                        df_signals[signal_name + '_phasic'] * 25, alpha=0.7, facecolor='orange',
-                        edgecolor='darkgrey',
-                        label="phasic", zorder=12)
-        # ax.fill_between(df_signals.index.values, small_rem_pieces * (-25),
-        #                 small_rem_pieces * 25, alpha=0.7, facecolor='pink',
-        #                 edgecolor='darkgrey',
-        #                 label="small_rem_pieces", zorder=6)
-        # SIGNAL CHANNEL
-        ax.plot(df_signals.index.values, df_signals[signal_name], c='#313133', label=signal_name, alpha=0.85, zorder=11)
-        # ax.plot(df_signals.index.values, artifact_free_rem_block, c='deeppink', label='used_for_baseline', alpha=0.85, zorder=12)
-        # ax.plot(df_signals.index.values, numbered_rem_blocks, c='deeppink', label='numbered_rem_blocks', alpha=0.85, zorder=4)
-        # ax.plot(df_signals.index.values, all_rem_sleep_numbered * 10, c='lime', label='all_rem_sleep_numbered', alpha=0.85, zorder=13)
-        ax.plot(df_baselines[signal_name + '_baseline'], c='mediumseagreen', label=signal_name + "_baseline", zorder=13)
-        ax.plot(df_baselines[signal_name + '_baseline'] * (-1), c='mediumseagreen', zorder=13)
-        # ax.plot(df_baselines[signal_name + '_human_baseline'], c='blue', label=signal_name + " human baseline",
-        #         zorder=13)
-        # ax.plot(df_baselines[signal_name + '_human_baseline'] * (-1), c='blue', zorder=13)
-        # ax.plot([df.index.values[0], df.index.values[-1]], [0, 0], c='dimgrey')
-        ax.plot(df_signals[signal_name + '_phasic_bouts'], c='deeppink', label="Phasic", zorder=14)
-        ax.legend(loc='upper left', facecolor='white', framealpha=1)
-        plt.show()
-
 
 
     @staticmethod

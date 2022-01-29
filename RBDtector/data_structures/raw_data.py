@@ -10,7 +10,7 @@ class RawData:
     def __init__(self, header: Dict[str, str] = None, data_channels: Dict[str, RawDataChannel] = None):
         """ Constructor of class RawData.
         :param header: header of .edf file as read by pyedflib.highlevel (Dict[str, str or List[List]]).
-        Expected keys: 'startdate', 'patientcode', 'birthdate', 'admincode', 'gender', 'epuipment', 'annotations'
+        Necessarily expected keys: 'startdate'
         """
         self._header: Dict[str, str] = header
         self._data_channels: Dict[str, RawDataChannel] = data_channels
@@ -33,5 +33,3 @@ class RawData:
         else:
             # TODO: Add RawDataChannel-Validation?
             self._data_channels[name]: RawDataChannel
-
-    # TODO: Add useful methods to get specific data for calculations

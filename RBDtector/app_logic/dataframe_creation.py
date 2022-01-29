@@ -1,11 +1,15 @@
+"""
+Dataframe Creation
+
+dataframe_creation groups functions used specifically for creating a
+datetime-indexed pandas objects suitable for RBD detection.
+"""
+
 import numpy as np
 import pandas as pd
 from scipy import interpolate
 
 from util import settings
-
-""" dataframe_creation groups all functions used specifically for creating
-datetime-indexed pandas objects suitable for RBD detection. """
 
 
 def create_datetime_index(start_datetime, sample_rate, sample_length, index_rate=settings.RATE):
