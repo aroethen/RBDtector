@@ -110,32 +110,30 @@ def _select_folder_handler(dir_text_variable):
         dir_text_variable.set(str(directory))
 
 
-def _trigger_calculation(input_dir, output_dir):
-    if input_dir != _input_placeholder and output_dir != _output_placeholder:
-
-        logging.info('Start button clicked\n\t\t'
-                     'Selected input dir: {}\n\t\t'
-                     'Selected output dir: {}'.format(input_dir, output_dir))
-
-        try:
-            start_time = datetime.datetime.now()
-            PSGController.run_rbd_detection(input_dir, output_dir)
-            end_time = datetime.datetime.now()
-            print('Overall calculation time: ' + str(end_time - start_time))
-        except ErrorForDisplay as e:
-
-            tkinter.messagebox.showerror(
-                title='Error',
-                message=str(e)
-            )
-
-    else:
-        tkinter.messagebox.showinfo(
-            title='Invalid input',
-            message='Please select input and output directories'
-        )
-
-
+# def _trigger_calculation(input_dir, output_dir):
+#     if input_dir != _input_placeholder and output_dir != _output_placeholder:
+#
+#         logging.info('Start button clicked\n\t\t'
+#                      'Selected input dir: {}\n\t\t'
+#                      'Selected output dir: {}'.format(input_dir, output_dir))
+#
+#         try:
+#             start_time = datetime.datetime.now()
+#             PSGController.run_rbd_detection(input_dir, output_dir)
+#             end_time = datetime.datetime.now()
+#             print('Overall calculation time: ' + str(end_time - start_time))
+#         except ErrorForDisplay as e:
+#
+#             tkinter.messagebox.showerror(
+#                 title='Error',
+#                 message=str(e)
+#             )
+#
+#     else:
+#         tkinter.messagebox.showinfo(
+#             title='Invalid input',
+#             message='Please select input and output directories'
+#         )
 
 def superdir_run(path, parent_window=None, dev_run: bool = False):
 
@@ -189,7 +187,7 @@ def superdir_run(path, parent_window=None, dev_run: bool = False):
 
                     error_scrolled_text.configure(state='normal')
                     error_scrolled_text.insert('end', f'Error in file {abs_child}:\n {e}\n')
-                    error_scrolled_text.insert('end', 'Full error message can be found in log file.')
+                    error_scrolled_text.insert('end', 'Full error message can be found in log file.\n\n')
                     error_scrolled_text.configure(state='disabled')
 
                 logging.error(f'Error in file {abs_child}:\n {e}')
@@ -209,7 +207,7 @@ def superdir_run(path, parent_window=None, dev_run: bool = False):
 
                     error_scrolled_text.configure(state='normal')
                     error_scrolled_text.insert('end', f'Unexpected error in file {abs_child}:\n {e}\n')
-                    error_scrolled_text.insert('end', 'Full error message in log file. Please contact developer.')
+                    error_scrolled_text.insert('end', 'Full error message in log file. Please contact developer.\n\n')
                     error_scrolled_text.configure(state='disabled')
 
                 logging.error(f'Unexpected error in file {abs_child}:\n {e}')

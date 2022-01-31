@@ -3,6 +3,7 @@ from itertools import chain, combinations
 
 import pandas as pd
 import numpy as np
+from pathlib import Path
 import os
 import csv
 from datetime import datetime
@@ -12,9 +13,10 @@ import logging
 
 from util.definitions import HUMAN_RATING_LABEL, EVENT_TYPE, definitions_as_string
 from util import settings
+from util.error_for_display import ErrorForDisplay
 
 
-def write_output(output_path,
+def write_output(psg_path,
                  subject_name,
                  calculated_data: pd.DataFrame = None,
                  signal_names: List[str] = None,
@@ -24,11 +26,19 @@ def write_output(output_path,
     Writes calculated annotations and human rater annotations into csv and xlsx tables for further evaluation 
     and for displaying the respective annotations with the third-party application EDFBrowser.
     :param signal_names: signals to find in calculated data
-    :param output_path: Valid path to create output files in
+    :param psg_path: Path of the PSG directory in order to create a directory 'RBDtector output' there
     :param calculated_data: Dataframe of calculated annotations
     :param human_rating: Dataframe of human rater annotations
     """
-    logging.info(f'Writing output to {output_path}')
+    logging.info(f'Writing output to {psg_path}')
+    try:
+        output_path = Path(psg_path, 'RBDtector output')
+        output_path.mkdir(exist_ok=True)
+
+    except OSError:
+        raise ErrorForDisplay(f'An output directory inside {output_path} could not be created. '
+                              f'No specific output possible for this PSG.')
+
     try:
         write_exact_events_csv(calculated_data, output_path, signal_names)
 

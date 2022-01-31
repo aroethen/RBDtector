@@ -5,6 +5,7 @@ import pandas as pd
 from util.definitions import SLEEP_CLASSIFIERS
 from util import settings
 from app_logic.PSG import PSG
+from input_handling import input_reader as ir
 from output_handling import csv_writer
 
 import matplotlib.pyplot as plt
@@ -20,9 +21,10 @@ class PSGController:
         if settings.DEV_READ_PICKLE_INSTEAD_OF_EDF:
             psg.use_pickled_df_as_calculated_data(os.path.join(input_path, 'pickledDF'))
         else:
-            raw_data, annotation_data = psg.read_input(settings.SIGNALS_TO_EVALUATE.copy(),
-                                                       read_human_rating=settings.HUMAN_ARTIFACTS,
-                                                       read_baseline=settings.HUMAN_BASELINE)
+            raw_data, annotation_data = ir.read_input(directory_name=input_path,
+                                                      signals_to_load=settings.SIGNALS_TO_EVALUATE.copy(),
+                                                      read_human_rating=settings.HUMAN_ARTIFACTS,
+                                                      read_baseline=settings.HUMAN_BASELINE)
 
             df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
                 psg.prepare_evaluation(raw_data, annotation_data, settings.SIGNALS_TO_EVALUATE.copy(), settings.FLOW)

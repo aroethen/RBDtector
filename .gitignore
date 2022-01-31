@@ -28,3 +28,5 @@ RBDtector/pyvenv.cfg
 RBDtector/share/
 docs/
 
+/tests/data/Example 2/
+/tests/data/Example 1/

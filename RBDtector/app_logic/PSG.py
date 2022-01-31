@@ -5,7 +5,6 @@ from typing import Tuple
 from app_logic import dataframe_creation
 from data_structures.annotation_data import AnnotationData
 from data_structures.raw_data import RawData
-from input_handling import input_reader as ir
 
 # python modules
 import logging

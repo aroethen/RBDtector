@@ -1,0 +1,8 @@
+PSG start: 01.00.00
+
+EMG REM baseline: 01.15.20-01.15.30
+PLMl REM baseline: 01.44.00-01.44.15
+PLMr REM baseline: 01.37.45-01.37.55
+
+AUX REM baseline: 01.06.20-01.06.30
+AKTI REM baseline: 01.50.45-01.50.55
