@@ -4,6 +4,10 @@ A python software tool to detect REM sleep behavioral disorder (RBD) in .edf fil
 Relies on .txt files of previously classified periods of sleep phases and arousals.
 
 ## How to download
+### Executable version (Recommended)
+
+### Run source code 
+
 
 ## How to use
 
@@ -13,7 +17,7 @@ This project is licensed under the MIT License (s. [LICENSE](LICENSE) file).
 
 ## Acknowledgements
 
-This project uses the following third-party open source libraries with great appreciation:
+This project uses the following third-party open source libraries with great appreciation.
 
 | Library   | License   |
 | ---       | ---       |
