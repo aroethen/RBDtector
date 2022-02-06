@@ -2,11 +2,13 @@
 import os
 import glob
 import datetime
+from datetime import date
 
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Union
 import logging
 
 # third-party modules
+from pandas._libs import NaTType
 from pyedflib import highlevel
 import pandas as pd
 
@@ -460,7 +462,7 @@ def __read_annotation_body(annotation_body_in_lines, event_name_split_index, sta
     return event_onsets, event_name_list, event_end_times
 
 
-def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
+def __find_start_date(header: Dict[str, str], filename: str) -> tuple[date, bool]:
     """
     Takes start time string out of dictionary['Start Time'], extracts the date part and returns it as datetime.date
     :param header: Dictionary containing a key 'Start Time' with date and time in a string as value
@@ -468,7 +470,11 @@ def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
     :return: Start date as date object
     """
     try:
-        start_time = pd.Timestamp(datetime.datetime.strptime(header['Start Time'], '%d.%m.%Y %H:%M:%S'))
+        try:
+            start_time = pd.Timestamp(datetime.datetime.strptime(header['Start Time'], '%d.%m.%Y %H:%M:%S'))
+        except ValueError:
+            start_time = pd.Timestamp(datetime.datetime.strptime(header['Start Time'], '%d-%m-%Y %H:%M:%S'))
+
         start_date = start_time.date()
         recording_start_after_midnight = (datetime.time(0, 0, 0) <= start_time.time() < datetime.time(12, 0, 0))
 
@@ -476,6 +482,13 @@ def __find_start_date(header: Dict[str, str], filename: str) -> datetime.date:
         logging.exception('"Start Time" field missing in header of the following file:' + filename)
 
         raise ErrorForDisplay('"Start Time" field missing in header of the following file:' + filename) from e
+
+    except ValueError as e:
+        logging.exception('"Start Time" field does not conform to one of these formats: '
+                          '"%d.%m.%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S" in file: ' + filename)
+
+        raise ErrorForDisplay('"Start Time" field does not conform to one of these formats: '
+                              '"%d.%m.%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S" in file: ' + filename) from e
 
     return start_date, recording_start_after_midnight
 

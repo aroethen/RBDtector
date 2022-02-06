@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 from pandas.testing import assert_frame_equal
 import pandas as pd
+import sys
 
+sys.path.append('../RBDtector')
 from app_logic.PSG_controller import PSGController
 from util import settings
 

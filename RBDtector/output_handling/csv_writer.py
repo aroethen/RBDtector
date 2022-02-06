@@ -151,7 +151,7 @@ def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and
     multiindex = pd.MultiIndex.from_product(factors, names=["Signal", 'Description'])
     multiindex = pd.MultiIndex.from_arrays([
         multiindex.get_level_values(0),
-        multiindex.get_level_values(0).map(HUMAN_RATING_LABEL) + '_' + multiindex.get_level_values(1)])
+        multiindex.get_level_values(0).map(lambda x: HUMAN_RATING_LABEL.get(x, x)) + '_' + multiindex.get_level_values(1)])
 
     # create result df
     df_out = pd.DataFrame(index=multiindex) \
@@ -176,11 +176,13 @@ def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and
         if not signal_name + '_phasic_miniepochs' in df.columns:
             continue
 
-        df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MiniEpochs_WO-Artifacts'],
+        df_out.loc[idx[signal_name,
+                       HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_REM_MiniEpochs_WO-Artifacts'],
                    subject_name] = df[signal_name + '_artifact_free_rem_sleep_miniepoch'].sum() \
                                    / (settings.RATE * 3)
 
-        df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MacroEpochs_WO-Artifacts'],
+        df_out.loc[idx[signal_name,
+                       HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_REM_MacroEpochs_WO-Artifacts'],
                    subject_name] = df[signal_name + '_artifact_free_rem_sleep_epoch'].sum() \
                                    / (settings.RATE * 30)
 
@@ -190,37 +192,37 @@ def create_result_df(calculated_data, signal_names, subject_name, amplitudes_and
                 epoch_length = 30
                 miniepochs = ''
                 epoch_count = \
-                    df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MacroEpochs_WO-Artifacts'],
+                    df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_REM_MacroEpochs_WO-Artifacts'],
                                subject_name]
             else:
                 epoch_length = 3
                 miniepochs = '_miniepochs'
                 epoch_count = \
-                    df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_REM_MiniEpochs_WO-Artifacts'],
+                    df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_REM_MiniEpochs_WO-Artifacts'],
                                subject_name]
 
-            df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs'],
+            df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_' + category + '_Abs'],
                        subject_name] = df[signal_name + '_' + category + miniepochs].sum() \
                                        / (settings.RATE * epoch_length)
             abs_count = \
-                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_Abs'],
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_' + category + '_Abs'],
                 subject_name]
 
-            df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_' + category + '_%'],
+            df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_' + category + '_%'],
                        subject_name] = (abs_count * 100) / epoch_count
 
             if category == 'phasic':
-                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Max-Mean-Ampli'],
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_phasic_Max-Mean-Ampli'],
                            subject_name] = amplitudes_and_durations[signal_name]['phasic']['max_mean']
 
-                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_phasic_Average-Duration'],
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_phasic_Average-Duration'],
                            subject_name] = amplitudes_and_durations[signal_name]['phasic']['mean_duration']
 
             elif category == 'any':
-                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_non-tonic_Max-Mean-Ampli'],
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_non-tonic_Max-Mean-Ampli'],
                            subject_name] = amplitudes_and_durations[signal_name]['non-tonic']['max_mean']
 
-                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL[signal_name] + '_non-tonic_Average-Duration'],
+                df_out.loc[idx[signal_name, HUMAN_RATING_LABEL.get(signal_name, signal_name) + '_non-tonic_Average-Duration'],
                            subject_name] = amplitudes_and_durations[signal_name]['non-tonic']['mean_duration']
 
     return df_out
@@ -252,7 +254,7 @@ def write_exact_events_csv(calculated_data, output_path, signal_names):
             start_times = diff[diff == 1].index.array
             end_times = diff[diff == -1].index.array
             rbdtector_events.extend(
-                list(zip(start_times, end_times, [HUMAN_RATING_LABEL[signal] + EVENT_TYPE[cat]] * len(start_times))))
+                list(zip(start_times, end_times, [HUMAN_RATING_LABEL.get(signal, signal) + EVENT_TYPE[cat]] * len(start_times))))
     rbdtector_events.sort(key=(lambda tpl: tpl[0]))
     with open(
             os.path.normpath(os.path.join(output_path, 'RBDtection_Events_{}.csv'.format(os.path.basename(output_path)))),
