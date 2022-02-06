@@ -8,7 +8,7 @@ This project is licensed under the MIT License (s. [LICENSE](LICENSE) file).
 
 ## Acknowledgements
 
-This project uses the following third-party open source libraries with great appreciation.
+This project gratefully uses the following third-party open source libraries:
 
 | Library   | License   |
 | ---       | ---       |
