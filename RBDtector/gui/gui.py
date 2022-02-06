@@ -108,32 +108,6 @@ def _select_folder_handler(dir_text_variable):
         dir_text_variable.set(str(directory))
 
 
-# def _trigger_calculation(input_dir, output_dir):
-#     if input_dir != _input_placeholder and output_dir != _output_placeholder:
-#
-#         logging.info('Start button clicked\n\t\t'
-#                      'Selected input dir: {}\n\t\t'
-#                      'Selected output dir: {}'.format(input_dir, output_dir))
-#
-#         try:
-#             start_time = datetime.datetime.now()
-#             PSGController.run_rbd_detection(input_dir, output_dir)
-#             end_time = datetime.datetime.now()
-#             print('Overall calculation time: ' + str(end_time - start_time))
-#         except ErrorForDisplay as e:
-#
-#             tkinter.messagebox.showerror(
-#                 title='Error',
-#                 message=str(e)
-#             )
-#
-#     else:
-#         tkinter.messagebox.showinfo(
-#             title='Invalid input',
-#             message='Please select input and output directories'
-#         )
-
-
 def create_error_scrolled_text_toplevel(error_messages, parent_window):
     top = tk.Toplevel(parent_window)
     tk.Label(top,

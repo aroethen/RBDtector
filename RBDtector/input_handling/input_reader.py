@@ -79,12 +79,15 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
         for file_identifier in file_identifiers:
             tmp_files.extend(glob.glob(os.path.join(abs_dir, file_identifier)))
 
+        # process SNORE markings if selected
         if file_type == 'sleep_profile':
             if len(tmp_files) == 2:
-                if settings.SNORE or settings.EX:
+                if settings.SNORE:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' in file_str]
                 else:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' not in file_str]
+
+        # process human rating if selected
         if len(tmp_files) == 1:
             if file_type == 'human_rating':
                 files[file_type] = tmp_files

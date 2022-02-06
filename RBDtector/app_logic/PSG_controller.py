@@ -32,10 +32,6 @@ class PSGController:
         df_signals, is_REM_series, is_global_artifact_series, signal_names, sleep_phase_series = \
             psg.prepare_evaluation(raw_data, annotation_data, settings.SIGNALS_TO_EVALUATE.copy(), settings.FLOW)
 
-        if settings.EX:
-            ex_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['EX'].lower()
-            is_global_artifact_series = is_global_artifact_series | ex_series
-
         # find all (mini)epochs of global artifact-free REM sleep
         is_global_artifact_free_rem_sleep_epoch_series, is_global_artifact_free_rem_sleep_miniepoch_series = \
             psg.find_artifact_free_REM_sleep_epochs_and_miniepochs(
@@ -58,8 +54,6 @@ class PSGController:
         if settings.SNORE:
             if 'EMG' in signal_names:
                 snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
-                ex_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['EX'].lower()
-                snore_series = snore_series | ex_series
                 signal_artifacts['EMG_signal_artifact'] = signal_artifacts['EMG_signal_artifact'] | snore_series
 
         artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(

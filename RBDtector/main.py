@@ -35,7 +35,6 @@ def read_config():
             settings.HUMAN_ARTIFACTS = config.getboolean('Settings', 'HUMAN_ARTIFACTS',
                                                          fallback=settings.HUMAN_ARTIFACTS)
             settings.SNORE = config.getboolean('Settings', 'SNORE', fallback=settings.SNORE)
-            settings.EX = config.getboolean('Settings', 'EX', fallback=settings.EX)
 
             # Use manually defined static baselines from a baseline file instead of calculating adaptive baseline levels
             settings.HUMAN_BASELINE = config.getboolean('Settings', 'HUMAN_BASELINE',

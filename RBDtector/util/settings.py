@@ -10,7 +10,6 @@ SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
 FLOW = False
 HUMAN_ARTIFACTS = False
 SNORE = True
-EX = False  #Todo: Rauswerfen
 
 # Use manually defined static baselines from a baseline file instead of calculating adaptive baseline levels
 HUMAN_BASELINE = False
@@ -34,7 +33,6 @@ def settings_as_string():
                f'HUMAN_ARTIFACTS = {HUMAN_ARTIFACTS}\n' +
                f'HUMAN_BASELINE = {HUMAN_BASELINE}\n' +
                f'SNORE = {SNORE}\n' +
-               f'EX = {EX}\n' +
                f'COUNT_BASED_ACTIVITY = {COUNT_BASED_ACTIVITY}\n' +
                f'MIN_SUSTAINED = {MIN_SUSTAINED}\n' +
                f'MAX_GAP_SIZE = {MAX_GAP_SIZE}\n' +

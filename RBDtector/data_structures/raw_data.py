@@ -9,8 +9,10 @@ class RawData:
 
     def __init__(self, header: Dict[str, str] = None, data_channels: Dict[str, RawDataChannel] = None):
         """ Constructor of class RawData.
+
         :param header: header of .edf file as read by pyedflib.highlevel (Dict[str, str or List[List]]).
-        Necessarily expected keys: 'startdate'
+                        Necessarily expected keys: 'startdate'
+        :param data_channels:
         """
         self._header: Dict[str, str] = header
         self._data_channels: Dict[str, RawDataChannel] = data_channels

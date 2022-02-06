@@ -34,8 +34,7 @@ FILE_FINDER = {     #: Maps file type to its file name pattern used to find the 
 SLEEP_CLASSIFIERS = {
     'artifact': 'A',
     'REM':  'REM',
-    'SNORE': 'SNORE',
-    'EX': 'EX'
+    'SNORE': 'SNORE'
 }
 
 
