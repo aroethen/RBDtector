@@ -17,6 +17,3 @@ This project uses the following third-party open source libraries with great app
 | [pandas](https://github.com/pandas-dev/pandas)       | [BSD 3-Clause "New" or "Revised" License] (https://github.com/pandas-dev/pandas/blob/main/LICENSE)|
 | [scipy](https://github.com/scipy/scipy)              | [BSD 3-Clause "New" or "Revised" License] (https://github.com/scipy/scipy/blob/main/LICENSE.txt)|
 | [openpyxl](https://foss.heptapod.net/openpyxl/openpyxl)       | [MIT License] (https://foss.heptapod.net/openpyxl/openpyxl/-/blob/branch/3.0/LICENCE.rst)|
-ttkthemes? https://www.tcl-lang.org/software/tcltk/license.html
-Tcl/Tk License
-
