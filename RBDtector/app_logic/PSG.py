@@ -58,17 +58,6 @@ class PSG:
     def output_path(self, output_path):
         self._output_path = output_path
 
-    def use_pickled_df_as_calculated_data(self, pickle_path: str) -> None:
-        """ 'Setter' method for development. Sets the pickled pandas DataFrame at 'pickle_path' as
-        'self._calculated_data'.
-        :param pickle_path: absolute path of pickle file containing a previously pickled DataFrame with calculated data
-        """
-        if self._calculated_data is not None:
-            logging.info(f'Previous calculations are overwritten by content of pickle file.')
-
-        self._calculated_data = pd.read_pickle(pickle_path)
-        logging.info(f'Used pickled calculation dataframe from {pickle_path}')
-
     @staticmethod
     def prepare_evaluation(raw_data, annotation_data, signal_names, assess_flow_events):
 

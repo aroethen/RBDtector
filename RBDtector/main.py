@@ -9,9 +9,8 @@ import traceback
 
 # internal modules
 from gui import gui
-from app_logic.PSG_controller import PSGController
+from app_logic.PSG_controller import PSGController, superdir_run
 from util import settings
-from gui.gui import superdir_run
 
 DEV = False
 

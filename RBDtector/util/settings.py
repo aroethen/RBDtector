@@ -25,12 +25,10 @@ OFFSET_SIZE = '15L'
 
 # Development settings
 DEV = False
-DEV_READ_PICKLE_INSTEAD_OF_EDF = False
 
 
 def settings_as_string():
     return str(f'DEV = {DEV}\n' +
-               f'DEV_READ_PICKLE_INSTEAD_OF_EDF = {DEV_READ_PICKLE_INSTEAD_OF_EDF}\n' +
                f'RATE = {RATE}\n' +
                f'FLOW = {FLOW}\n' +
                f'HUMAN_ARTIFACTS = {HUMAN_ARTIFACTS}\n' +
