@@ -52,9 +52,9 @@ class PSGController:
                     human_signal_artifacts[signal_name + '_human_artifact']
 
         if settings.SNORE:
-            if 'EMG' in signal_names:
-                snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
-                signal_artifacts['EMG_signal_artifact'] = signal_artifacts['EMG_signal_artifact'] | snore_series
+            snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
+            signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[0]}_signal_artifact'] = \
+                signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[0]}_signal_artifact'] | snore_series
 
         artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
             df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,

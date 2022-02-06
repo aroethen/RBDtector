@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 # DEFINITIONS
-from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS
+from util.definitions import BASELINE_NAME, EVENT_TYPE, HUMAN_RATING_LABEL, SLEEP_CLASSIFIERS, definitions_as_string
 from util import settings
 
 
@@ -34,9 +34,7 @@ class PSG:
         self._calculated_data: pd.DataFrame = None      # dataframe with all currently calculated data
 
         logging.info('Definitions:\n'
-                     f'BASELINE_NAME = {str(BASELINE_NAME)}\n'
-                     f'HUMAN_RATING_LABEL = {str(HUMAN_RATING_LABEL)}\n'
-                     f'EVENT_TYPE = {str(EVENT_TYPE)}\n'
+                     f'{str(definitions_as_string())}\n'
                      f'{str(settings.settings_as_string())}'
                      )
         logging.debug('New PSG Object created')
@@ -65,8 +63,8 @@ class PSG:
 
         # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
         start_datetime = raw_data.get_header()['startdate']
-        sample_rate = raw_data.get_data_channels()['EMG'].get_sample_rate()
-        sample_length = len(raw_data.get_data_channels()['EMG'].get_signal())
+        sample_rate = raw_data.get_data_channels()[settings.SIGNALS_TO_EVALUATE[0]].get_sample_rate()
+        sample_length = len(raw_data.get_data_channels()[settings.SIGNALS_TO_EVALUATE[0]].get_signal())
 
         # prepare DataFrame with DatetimeIndex
         preliminary_idx = dataframe_creation.create_datetime_index(start_datetime, sample_rate, sample_length)
@@ -392,7 +390,6 @@ class PSG:
 
         # Create column for human rating of event type
         df[signal_type + '_human_artifact'] = pd.Series(False, index=df.index)
-        logging.debug(HUMAN_RATING_LABEL[signal_type] + artifact_label)
 
         # Get relevant artifact annotations for column
         human_event_type_indices = \
@@ -764,7 +761,6 @@ class PSG:
 
             # Create column for human rating of event type
             df[signal_type + '_human_' + event_type] = pd.Series(False, index=df.index)
-            logging.debug(HUMAN_RATING_LABEL[signal_type] + EVENT_TYPE[event_type])
 
             # Get relevant annotations for column
             human_event_type_indices = \
