@@ -42,15 +42,11 @@ def write_output(psg_path,
     try:
         write_exact_events_csv(calculated_data, output_path, signal_names)
 
-        cols = calculated_data.columns
         miniepoch_column_names = []
         for signal in signal_names:
             miniepoch_column_names.append('{}_tonic'.format(signal))
             for category in ['phasic', 'any']:
                 miniepoch_column_names.append('{}_{}_miniepochs'.format(signal, category))
-
-        comparison_df = calculated_data[calculated_data.columns.intersection(miniepoch_column_names)]
-        comparison_df.to_pickle(os.path.join(output_path, 'comparison_pickle'))
 
         df_out = create_result_df(calculated_data, signal_names, subject_name, amplitudes_and_durations)
 
