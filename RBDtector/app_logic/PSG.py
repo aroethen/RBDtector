@@ -237,6 +237,7 @@ class PSG:
 
             for signal_name in signal_names:
 
+                # TODO: move to settings
                 MIN_REM_BLOCK_LENGTH_IN_S = 150
                 MIN_BASELINE_VOLTAGE = 0.05
                 baseline_time_window_in_s = 30
