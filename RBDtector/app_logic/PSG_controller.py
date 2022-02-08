@@ -132,7 +132,7 @@ def single_psg_run(input_path, output_path = None, dev_run: bool = False):
     return error_messages
 
 
-def superdir_run(path, dev_run: bool = False):
+def multiple_directory_run(path, dev_run: bool = False):
 
     dirlist = os.listdir(path)
     reading_problems = []

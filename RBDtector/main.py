@@ -10,7 +10,7 @@ import traceback
 
 # internal modules
 from gui import gui
-from app_logic.PSG_controller import PSGController, superdir_run
+from app_logic.PSG_controller import PSGController, multiple_directory_run
 from util import settings
 
 DEV = False
@@ -19,12 +19,10 @@ SUPERDIR = True
 
 
 def read_config():
-    config_exists = False
     try:
-        config_path = Path(os.path.dirname(os.getcwd()), 'config.ini')
+        config_path = Path(os.getcwd(), 'config.ini')
         config = configparser.ConfigParser()
         config.read(config_path)
-        config_exists = True
 
         try:
             # Signal names of EMG channels in EDF files to be evaluated for RSWA
@@ -60,7 +58,6 @@ def read_config():
             logging.info("Section [Settings] not found in config file.")
 
     except EnvironmentError:
-        config_exists = False
         logging.info('No config file found. Default settings are used.')
 
 
@@ -82,7 +79,7 @@ if __name__ == "__main__":
             path = 'D:/EMG/testifer'
             # path = '/localdata/EMG/EMG-Scorings iRBD Nora'
 
-            superdir_run(path, dev_run=True)
+            multiple_directory_run(path, dev_run=True)
 
         else:
             # path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'
@@ -95,10 +92,10 @@ if __name__ == "__main__":
 
             rbd_gui = gui.Gui()
             rbd_gui.mainloop()
+
         except BaseException as e:
             logging.error(f'Program terminated with unexpected error:\n {e}')
             logging.error(traceback.format_exc())
-            print(f'An unexpected error occurred. Error message can be found in log file. Please contact the developer.')
+            print(f'An unexpected error occurred. Error message can be found in log file. '
+                  f'Please contact the developer.')
             sys.exit(1)
-
-    # Final TODO: Catch all remaining errors, log them, show message with reference to logfile and exit with error code

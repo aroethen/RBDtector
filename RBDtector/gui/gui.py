@@ -8,7 +8,7 @@ import tkinter.scrolledtext as st
 import logging
 
 # internal
-from app_logic.PSG_controller import PSGController, superdir_run, single_psg_run
+from app_logic.PSG_controller import PSGController, multiple_directory_run, single_psg_run
 
 # global variables
 _input_placeholder = 'Select input folder'
@@ -48,7 +48,7 @@ class Gui(tk.Tk):
         if self.dir_option.get() == "single psg":
             error_messages = single_psg_run(self.input_path.get())
         elif self.dir_option.get() == "multiple psg":
-            error_messages = superdir_run(self.input_path.get())
+            error_messages = multiple_directory_run(self.input_path.get())
 
         if not error_messages:
             logging.info(f'All PSGs of {self.input_path.get()} were processed without errors.')
