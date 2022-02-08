@@ -23,8 +23,9 @@ class Gui(tk.Tk):
 
         self.dir_option = tk.StringVar()
         self.input_path = tk.StringVar()
+        self.processing_variable = tk.StringVar()
 
-        self.rb_frame = RadiobuttonFrame(container, self)
+        self.rb_frame = SingleOrMultipleSelectionFrame(container, self)
         self.dir_selection_frame = DirSelectionFrame(container, self)
 
         self.rb_frame.grid(column=0, row=0, padx=10, pady=15, sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -40,6 +41,9 @@ class Gui(tk.Tk):
     def start_calculation(self, input_path, parent_window):
         self.input_path.set(input_path.get())
 
+        self.processing_variable.set("RBDtection running. Please do not close this window.")
+        self.update_idletasks()
+
         error_messages = 'GUI error - please contact developer.'
         if self.dir_option.get() == "single psg":
             error_messages = single_psg_run(self.input_path.get())
@@ -50,10 +54,12 @@ class Gui(tk.Tk):
             logging.info(f'All PSGs of {self.input_path.get()} were processed without errors.')
             error_messages = error_messages + f'All PSGs of {self.input_path.get()} were processed without errors.'
 
+        self.processing_variable.set("")
+
         create_error_scrolled_text_toplevel(error_messages, parent_window)
 
 
-class RadiobuttonFrame(ttk.Frame):
+class SingleOrMultipleSelectionFrame(ttk.Frame):
     """TKinter Frame to select whether a single or multiple PSGs should be evaluated."""
     def __init__(self, parent, controller):
         ttk.Frame.__init__(self, parent)
@@ -89,8 +95,9 @@ class DirSelectionFrame(ttk.Frame):
 
         entry = ttk.Entry(self, textvariable=self.dir_path)
         entry.grid(row=0, column=0, padx=10, pady=10, sticky=(tk.W, tk.E))
-        btnFind = ttk.Button(self, text="Select directory", command=get_dir_path)
-        btnFind.grid(row=0, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
+
+        button_select = ttk.Button(self, text="Select directory", command=get_dir_path)
+        button_select.grid(row=0, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
 
         start_button = ttk.Button(
             self,
@@ -98,6 +105,9 @@ class DirSelectionFrame(ttk.Frame):
             command=lambda: self.controller.start_calculation(self.dir_path, parent_window=parent)
         )
         start_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10)
+
+        processing_label = ttk.Label(self, textvariable=controller.processing_variable, anchor='center')
+        processing_label.grid(column=0, row=4, columnspan=2, rowspan=2, padx=10, pady=10)
 
 
 def _select_folder_handler(dir_text_variable):
