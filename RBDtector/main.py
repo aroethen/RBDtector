@@ -4,6 +4,7 @@
 import configparser
 import logging
 import os
+from pathlib import Path
 import sys
 import traceback
 
@@ -20,8 +21,9 @@ SUPERDIR = True
 def read_config():
     config_exists = False
     try:
+        config_path = Path(os.path.dirname(os.getcwd()), 'config.ini')
         config = configparser.ConfigParser()
-        config.read(os.path.join(os.path.dirname(os.getcwd()), 'config.ini'))
+        config.read(config_path)
         config_exists = True
 
         try:
@@ -29,6 +31,21 @@ def read_config():
             config_signals_to_evaluate = config.get('Settings', 'SIGNALS_TO_EVALUATE', fallback=None)
             if config_signals_to_evaluate:
                 settings.SIGNALS_TO_EVALUATE = [x.strip() for x in config_signals_to_evaluate.split(',')]
+
+            # Index of chin channel(s) in SIGNALS_TO_EVALUATE
+            config_chin = config.get('Settings', 'CHIN', fallback=None)
+            if config_chin:
+                settings.CHIN = [int(x.strip()) for x in config_chin.split(',')]
+
+            # Index of leg channel(s) in SIGNALS_TO_EVALUATE
+            config_legs = config.get('Settings', 'LEGS', fallback=None)
+            if config_legs:
+                settings.LEGS = [int(x.strip()) for x in config_legs.split(',')]
+
+            # Index of arm channel(s) in SIGNALS_TO_EVALUATE
+            config_arms = config.get('Settings', 'ARMS', fallback=None)
+            if config_arms:
+                settings.ARMS = [int(x.strip()) for x in config_arms.split(',')]
 
             # Artifact types to be excluded from evaluation
             settings.FLOW = config.getboolean('Settings', 'FLOW', fallback=settings.FLOW)
@@ -39,8 +56,8 @@ def read_config():
             # Use manually defined static baselines from a baseline file instead of calculating adaptive baseline levels
             settings.HUMAN_BASELINE = config.getboolean('Settings', 'HUMAN_BASELINE',
                                                         fallback=settings.HUMAN_BASELINE)
-        except configparser.NoSectionError as e:
-            logging.info("Section 'Settings' not found in config file.")
+        except configparser.NoSectionError:
+            logging.info("Section [Settings] not found in config file.")
 
     except EnvironmentError:
         config_exists = False

@@ -56,7 +56,7 @@ def write_output(psg_path,
                 f'RBDtector_results_{str(datetime.now()).replace(" ", "_").replace(":", "-")}'
                 f'.xlsx')))
 
-        df_channel_combinations = create_channel_combinations_df(calculated_data, signal_names, subject_name)
+        df_channel_combinations = create_channel_combinations_df(calculated_data, subject_name)
         df_channel_combinations.to_excel(os.path.normpath(
             os.path.join(output_path, f'Channel_combinations_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
 
@@ -65,6 +65,8 @@ def write_output(psg_path,
                     f"{settings.settings_as_string()}"
                     f"{definitions_as_string()}"
                     )
+
+        print(settings.SIGNALS_TO_EVALUATE)
 
         return df_out, df_channel_combinations
 
@@ -77,37 +79,69 @@ def write_output(psg_path,
 
 
 
-def create_channel_combinations_df(calculated_data, signal_names, subject_name):
+def create_channel_combinations_df(calculated_data, subject_name):
     df = calculated_data.copy()
-
     # create powerset of channel combinations
-    qualities = {}
-    quality_keys = ['ChinTonic', 'ChinPhasic', 'ChinAny',
-                     'ArmsTonic', 'ArmsPhasic', 'ArmsAny',
-                     'LegsTonic', 'LegsPhasic', 'LegsAny']
 
-    quality_df_keys = ['EMG_tonic','EMG_phasic_miniepochs', 'EMG_any_miniepochs',
-                       ('AUX_tonic', 'Akti._tonic'), ('AUX_phasic_miniepochs', 'Akti._phasic_miniepochs'),
-                       ('AUX_any_miniepochs', 'Akti._any_miniepochs'),
-                       ('PLM l_tonic', 'PLM r_tonic'), ('PLM l_phasic_miniepochs', 'PLM r_phasic_miniepochs'),
-                       ('PLM l_any_miniepochs', 'PLM r_any_miniepochs')]
+    # combinations of all chin channels, arm channels and leg channels respectively
+    basic_combinations = {}
 
-    for key, df_key in zip(quality_keys, quality_df_keys):
+    # names of channel combination basic combinations
+    combination_keys = ['ChinTonic', 'ChinPhasic', 'ChinAny',
+                        'ArmsTonic', 'ArmsPhasic', 'ArmsAny',
+                        'LegsTonic', 'LegsPhasic', 'LegsAny']
+
+    # combination_keys_in_df = ['EMG_tonic', 'EMG_phasic_miniepochs', 'EMG_any_miniepochs',
+    #
+    #                    ('AUX_tonic', 'Akti._tonic'), ('AUX_phasic_miniepochs', 'Akti._phasic_miniepochs'),
+    #                    ('AUX_any_miniepochs', 'Akti._any_miniepochs'),
+    #
+    #                    ('PLM l_tonic', 'PLM r_tonic'), ('PLM l_phasic_miniepochs', 'PLM r_phasic_miniepochs'),
+    #                    ('PLM l_any_miniepochs', 'PLM r_any_miniepochs')
+    #                    ]
+
+    # keys under which to find the channel combinations in the
+    combination_keys_in_df = []
+    for location in [settings.CHIN, settings.ARMS, settings.LEGS]:
+        for event_type in ['_tonic', '_phasic_miniepochs', '_any_miniepochs']:
+
+            keys_for_location_and_event_type = []
+            try:
+                for elem in location:
+                    # construct the actual keys, e.g. 'EMG_phasic_miniepochs'
+                    try:
+                        keys_for_location_and_event_type.append(settings.SIGNALS_TO_EVALUATE[elem] + event_type)
+                    except IndexError:
+                        logging.error(f'SIGNALS_TO_EVALUATE ({settings.SIGNALS_TO_EVALUATE}) '
+                                      f'does not contain an element at index {elem} as defined as an electrode '
+                                      f'placement (CHIN, LEGS, ARMS) inside the configuration file.')
+                        raise ErrorForDisplay(
+                            f'SIGNALS_TO_EVALUATE ({settings.SIGNALS_TO_EVALUATE}) '
+                            f'does not contain an element at index {elem} as defined as an electrode '
+                            f'placement (CHIN, LEGS, ARMS) inside the configuration file.')
+            except TypeError:
+                # if location contains only one element and is not a list
+                try:
+                    keys_for_location_and_event_type.append(settings.SIGNALS_TO_EVALUATE[location] + event_type)
+                except KeyError:
+                    continue
+            combination_keys_in_df.append(keys_for_location_and_event_type)
+
+    # combine all channels given for CHIN, ARM and LEGS, respectively
+    for key, df_keys in zip(combination_keys, combination_keys_in_df):
         try:
-            if isinstance(df_key, str):
-                qualities[key] = df[df_key]
-            else:
-                qualities[key] = df[df_key[0]] | df[df_key[1]]
-        except KeyError as e:
+            basic_combinations[key] = np.logical_or.reduce(df[df_keys], axis=1)
+        except KeyError:
             continue
 
-    s = list(qualities.keys())
+
+    s = list(basic_combinations.keys())
     all_combinations = list(chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)))[1:]
 
     all_combinations_as_string = [','.join(x) for x in all_combinations]
 
     # TODO: Rename and document
-    blubb = [[qualities[j] for j in i] for i in all_combinations]
+    blubb = [[basic_combinations[j] for j in i] for i in all_combinations]
     bla = [np.logical_or.reduce(i) for i in blubb]
     df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, bla)), index=df.index)
 

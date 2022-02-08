@@ -75,6 +75,8 @@ def test_no_snore_settings(monkeypatch):
 
 def test_3_channels_settings(monkeypatch):
     monkeypatch.setattr(settings, 'SIGNALS_TO_EVALUATE', ['EMG', 'PLM r', 'AUX'])
+    monkeypatch.setattr(settings, 'LEGS', 1)
+    monkeypatch.setattr(settings, 'ARMS', 2)
 
     # run test
     PSGController.run_rbd_detection(test_path, test_path)
@@ -152,6 +154,8 @@ def test_all_defaults_changed_settings(monkeypatch):
     
     monkeypatch.setattr(settings, 'FLOW', True)
     monkeypatch.setattr(settings, 'SIGNALS_TO_EVALUATE', ['EMG', 'PLM r', 'AUX'])
+    monkeypatch.setattr(settings, 'LEGS', 1)
+    monkeypatch.setattr(settings, 'ARMS', 2)
     monkeypatch.setattr(settings, 'HUMAN_ARTIFACTS', True)
     monkeypatch.setattr(settings, 'HUMAN_BASELINE', True)
     monkeypatch.setattr(settings, 'SNORE', False)

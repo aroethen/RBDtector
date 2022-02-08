@@ -5,6 +5,10 @@ RATE = 256
 
 # Signal names of EMG channels in EDF files to be evaluated for RSWA
 SIGNALS_TO_EVALUATE = ['EMG', 'PLM l', 'PLM r', 'AUX', 'Akti.']
+CHIN = 0
+LEGS = [1, 2]
+ARMS = [3, 4]
+
 
 # Artifact types to be excluded from evaluation
 FLOW = False
@@ -39,5 +43,9 @@ def settings_as_string():
                f'CHUNK_SIZE = {CHUNK_SIZE}\n' +
                f'WITH_OFFSET = {WITH_OFFSET}\n' +
                f'OFFSET_SIZE = {OFFSET_SIZE}\n' +
-               f'SIGNALS_TO_EVALUATE = {str(SIGNALS_TO_EVALUATE)}\n'
+               f'SIGNALS_TO_EVALUATE = {str(SIGNALS_TO_EVALUATE)}\n' +
+               f'CHIN = {str(CHIN)}\n' +
+               f'LEGS = {str(LEGS)}\n' +
+               f'ARMS = {str(ARMS)}\n'
+
                )
