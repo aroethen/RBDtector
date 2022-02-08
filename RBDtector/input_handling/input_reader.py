@@ -4,11 +4,10 @@ import glob
 import datetime
 from datetime import date
 
-from typing import Tuple, Dict, List, Union
+from typing import Tuple, Dict, List
 import logging
 
 # third-party modules
-from pandas._libs import NaTType
 from pyedflib import highlevel
 import pandas as pd
 

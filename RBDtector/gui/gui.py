@@ -8,7 +8,7 @@ import tkinter.scrolledtext as st
 import logging
 
 # internal
-from app_logic.PSG_controller import PSGController, multiple_directory_run, single_psg_run
+from app_logic.PSG_controller import multiple_directory_run, single_psg_run
 
 # global variables
 _input_placeholder = 'Select input folder'

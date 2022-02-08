@@ -23,7 +23,6 @@ class PSGController:
 
         psg = PSG(input_path, output_path)
 
-
         raw_data, annotation_data = ir.read_input(directory_name=input_path,
                                                   signals_to_load=settings.SIGNALS_TO_EVALUATE.copy(),
                                                   read_human_rating=settings.HUMAN_ARTIFACTS,
@@ -36,7 +35,6 @@ class PSGController:
         is_global_artifact_free_rem_sleep_epoch_series, is_global_artifact_free_rem_sleep_miniepoch_series = \
             psg.find_artifact_free_REM_sleep_epochs_and_miniepochs(
                 idx=df_signals.index, artifact_signal_series=is_global_artifact_series, is_REM_series=is_REM_series)
-
 
         # FIND SIGNAL ARTIFACTS
         signal_artifacts = pd.DataFrame(index=df_signals.index)
@@ -62,13 +60,15 @@ class PSGController:
 
         # FIND BASELINE
         if settings.HUMAN_BASELINE:
-            df_baselines, _ = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
-                                              use_human_baselines=True, annotation_data=annotation_data)
+            df_baselines, _ = psg.find_baselines(
+                df_signals=df_signals, signal_names=signal_names,
+                use_human_baselines=True, annotation_data=annotation_data)
         else:
-            df_baselines, df_baseline_artifacts = psg.find_baselines(df_signals=df_signals, signal_names=signal_names,
-                                              use_human_baselines=False, is_rem_series=is_REM_series,
-                                              artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
-                                              annotation_data=annotation_data)
+            df_baselines, df_baseline_artifacts = psg.find_baselines(
+                df_signals=df_signals, signal_names=signal_names,
+                use_human_baselines=False, is_rem_series=is_REM_series,
+                artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
+                annotation_data=annotation_data)
 
             for signal_name in signal_names:
                 signal_artifacts[signal_name + '_signal_artifact'] = \
@@ -79,20 +79,21 @@ class PSGController:
                 df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
                 signal_names)
 
-        rbd_events, amplitudes_and_durations = psg.detect_rbd_events(df_signals=df_signals, df_baselines=df_baselines,
-                                           artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
-                                           signal_names=signal_names, annotation_data=annotation_data)
+        rbd_events, amplitudes_and_durations = psg.detect_rbd_events(
+            df_signals=df_signals, df_baselines=df_baselines,
+            artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
+            signal_names=signal_names, annotation_data=annotation_data)
 
-
-        df_out, df_channel_combinations = csv_writer.write_output(output_path,
-                                subject_name=os.path.basename(input_path),
-                                calculated_data=pd.concat([rbd_events, is_REM_series,
-                                                           is_global_artifact_free_rem_sleep_epoch_series,
-                                                           is_global_artifact_free_rem_sleep_miniepoch_series,
-                                                           artifact_free_rem_sleep_per_signal],
-                                                          axis=1, verify_integrity=True),
-                                signal_names=signal_names,
-                                amplitudes_and_durations=amplitudes_and_durations)
+        df_out, df_channel_combinations = csv_writer.write_output(
+            output_path,
+            subject_name=os.path.basename(input_path),
+            calculated_data=pd.concat([rbd_events, is_REM_series,
+                                       is_global_artifact_free_rem_sleep_epoch_series,
+                                       is_global_artifact_free_rem_sleep_miniepoch_series,
+                                       artifact_free_rem_sleep_per_signal],
+                                      axis=1, verify_integrity=True),
+            signal_names=signal_names,
+            amplitudes_and_durations=amplitudes_and_durations)
 
         return df_out, df_channel_combinations
 

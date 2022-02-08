@@ -8,7 +8,7 @@ import os
 import csv
 from datetime import datetime
 
-from typing import Tuple, Dict, List
+from typing import Dict, List
 import logging
 
 from util.definitions import HUMAN_RATING_LABEL, EVENT_TYPE, definitions_as_string
@@ -81,7 +81,6 @@ def write_output(psg_path,
 
 def create_channel_combinations_df(calculated_data, subject_name):
     df = calculated_data.copy()
-    # create powerset of channel combinations
 
     # combinations of all chin channels, arm channels and leg channels respectively
     basic_combinations = {}
@@ -90,15 +89,6 @@ def create_channel_combinations_df(calculated_data, subject_name):
     combination_keys = ['ChinTonic', 'ChinPhasic', 'ChinAny',
                         'ArmsTonic', 'ArmsPhasic', 'ArmsAny',
                         'LegsTonic', 'LegsPhasic', 'LegsAny']
-
-    # combination_keys_in_df = ['EMG_tonic', 'EMG_phasic_miniepochs', 'EMG_any_miniepochs',
-    #
-    #                    ('AUX_tonic', 'Akti._tonic'), ('AUX_phasic_miniepochs', 'Akti._phasic_miniepochs'),
-    #                    ('AUX_any_miniepochs', 'Akti._any_miniepochs'),
-    #
-    #                    ('PLM l_tonic', 'PLM r_tonic'), ('PLM l_phasic_miniepochs', 'PLM r_phasic_miniepochs'),
-    #                    ('PLM l_any_miniepochs', 'PLM r_any_miniepochs')
-    #                    ]
 
     # keys under which to find the channel combinations in the
     combination_keys_in_df = []
@@ -134,17 +124,20 @@ def create_channel_combinations_df(calculated_data, subject_name):
         except KeyError:
             continue
 
-
+    # create powerset of channel combinations
     s = list(basic_combinations.keys())
     all_combinations = list(chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)))[1:]
-
     all_combinations_as_string = [','.join(x) for x in all_combinations]
 
-    # TODO: Rename and document
-    blubb = [[basic_combinations[j] for j in i] for i in all_combinations]
-    bla = [np.logical_or.reduce(i) for i in blubb]
-    df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, bla)), index=df.index)
+    channel_lists_list = [[basic_combinations[key]
+                           for key in combination_list]
+                          for combination_list in all_combinations]
+    combined_channels_list = [np.logical_or.reduce(channel_combination)
+                              for channel_combination in channel_lists_list]
+    df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, combined_channels_list)),
+                                           index=df.index)
 
+    # count miniepochs of activity in artifact-free REM sleep per combination
     sum_of_channel_combinations = df_channel_combinations.loc[:, :].sum(axis=0)
     epoch_length = 3
     epoch_count = df['artifact_free_rem_sleep_miniepoch'].sum() / (settings.RATE * epoch_length)

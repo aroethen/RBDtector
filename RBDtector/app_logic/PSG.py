@@ -71,14 +71,7 @@ class PSG:
         # df = pd.DataFrame(index=preliminary_idx)
 
         # add sleep profile to df
-        # df['sleep_phase'], df['is_REM'] = PSG.create_sleep_profile_column(df.index, annotation_data)
         df = pd.concat(PSG.create_sleep_profile_column(preliminary_idx, annotation_data), axis=1)
-
-
-        # cut off all samples before start and after end of sleep_profile assessment if it exists
-        # start_of_first_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact']).idxmax()
-        # end_of_last_full_sleep_phase = df['sleep_phase'].ne(SLEEP_CLASSIFIERS['artifact'])[::-1].idxmax()
-        # df = df[start_of_first_full_sleep_phase:end_of_last_full_sleep_phase]
 
         # add signals to DataFrame
         for signal_type in signal_names.copy():
@@ -95,7 +88,6 @@ class PSG:
             sample_rate = raw_data.get_data_channels()[signal_type].get_sample_rate()
             df[signal_type] = dataframe_creation.signal_to_hz_rate_datetimeindexed_series(
                 settings.RATE, sample_rate, signal_array, signal_type, start_datetime)
-                # [start_of_first_full_sleep_phase:]
 
         # add global artifacts to df
         df['is_global_artifact'] = PSG.add_artifacts_to_df(df.index, annotation_data, assess_flow_events)
@@ -107,7 +99,6 @@ class PSG:
                                                            artifact_signal_series: pd.Series,
                                                            is_REM_series: pd.Series):
         """
-
         :param idx:
         :param artifact_signal_series:
         :param is_REM_series:
@@ -246,7 +237,6 @@ class PSG:
 
             for signal_name in signal_names:
 
-                # TODO: move into settings
                 MIN_REM_BLOCK_LENGTH_IN_S = 150
                 MIN_BASELINE_VOLTAGE = 0.05
                 baseline_time_window_in_s = 30
@@ -268,7 +258,6 @@ class PSG:
                 df_baseline_artifacts[signal_name + '_baseline_artifact'] = \
                     df_baseline_artifacts[signal_name + '_baseline_artifact'].ffill().fillna(False)
 
-
                 block_baselines = pd.Series(index=range(1, all_rem_sleep_numbered.max() + 1))
                 while True:
                     # calculate baseline per REM block
@@ -276,7 +265,8 @@ class PSG:
                         # find artifact-free REM block
                         rem_block = df_signals.loc[numbered_rem_blocks == block_number, signal_name]
                         artifact_free_rem_block = \
-                            rem_block.loc[artifact_free_rem_sleep_per_signal[signal_name + '_artifact_free_rem_sleep_miniepoch']]
+                            rem_block.loc[artifact_free_rem_sleep_per_signal[
+                                signal_name + '_artifact_free_rem_sleep_miniepoch']]
                         artifact_free_rem_block = \
                             artifact_free_rem_block[~df_baseline_artifacts[signal_name + '_baseline_artifact']]
 
@@ -443,19 +433,6 @@ class PSG:
 
         sleep_profile.sort_index(inplace=True)
 
-        # # if first time stamp of sleep profile is before first timestamp of emg data, set first sleep profile entry to
-        # # artifact
-        # if sleep_profile.index.min() < df.index[0]:
-        #     sleep_profile.loc[sleep_profile.index.min(), 'sleep_phase'] = SLEEP_CLASSIFIERS['artifact']
-
-        # # append a final row to sleep profile with "Artifact" sleep phase
-        # # for easier concatenation with df while correctly accounting for last 30s sleep profile interval
-        # sleep_profile = sleep_profile.append(pd.DataFrame({'sleep_phase': SLEEP_CLASSIFIERS['artifact']},
-        #                                                   index=[sleep_profile.index.max() + pd.Timedelta('30s')])
-        #                                      )
-
-        # sleep_profile.sort_index(inplace=True)
-
         # remove sleep phases which are not fully filled with samples
         sleep_profile = sleep_profile.loc[idx[0]:idx[-1]]
         sleep_profile.iloc[-1] = SLEEP_CLASSIFIERS['artifact']
@@ -475,7 +452,7 @@ class PSG:
         return df['sleep_phase'], df['is_REM']
 
 
-### Old df- and column-dependent internal methods
+### df- and column-dependent internal methods
     @staticmethod
     def find_any_activity_and_miniepochs(df, signal_type):
         """

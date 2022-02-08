@@ -26,13 +26,9 @@ CHUNK_SIZE = '30L'
 WITH_OFFSET = True
 OFFSET_SIZE = '15L'
 
-# Development settings
-DEV = False
-
 
 def settings_as_string():
-    return str(f'DEV = {DEV}\n' +
-               f'RATE = {RATE}\n' +
+    return str(f'RATE = {RATE}\n' +
                f'FLOW = {FLOW}\n' +
                f'HUMAN_ARTIFACTS = {HUMAN_ARTIFACTS}\n' +
                f'HUMAN_BASELINE = {HUMAN_BASELINE}\n' +

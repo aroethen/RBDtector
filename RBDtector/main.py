@@ -10,12 +10,7 @@ import traceback
 
 # internal modules
 from gui import gui
-from app_logic.PSG_controller import PSGController, multiple_directory_run
 from util import settings
-
-DEV = False
-
-SUPERDIR = True
 
 
 def read_config():
@@ -69,33 +64,17 @@ if __name__ == "__main__":
         datefmt='### %d.%m.%Y %I:%M:%S ###  '
     )
     logging.info('\n----------- START -----------')
-    logging.info('Starting GUI')
 
-    if DEV:
-        if SUPERDIR:
-            path = '/media/SharedData/EMG/EMG-Scorings mGlu Nora'
-            # path = '/media/SharedData/EMG/EMG-Scorings iRBD Nora'
-            # path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs'
-            path = 'D:/EMG/testifer'
-            # path = '/localdata/EMG/EMG-Scorings iRBD Nora'
+    try:
+        read_config()
 
-            multiple_directory_run(path, dev_run=True)
+        logging.info('Starting GUI')
+        rbd_gui = gui.Gui()
+        rbd_gui.mainloop()
 
-        else:
-            # path = '/media/SharedData/EMG/AUSLAGERUNG/iRBD0223'
-            path = '/home/annika/WORK/RBDtector/Non-Coding-Content/EMGs/iRBD0216'
-            _ = PSGController.run_rbd_detection(path, path)
-
-    else:
-        try:
-            read_config()
-
-            rbd_gui = gui.Gui()
-            rbd_gui.mainloop()
-
-        except BaseException as e:
-            logging.error(f'Program terminated with unexpected error:\n {e}')
-            logging.error(traceback.format_exc())
-            print(f'An unexpected error occurred. Error message can be found in log file. '
-                  f'Please contact the developer.')
-            sys.exit(1)
+    except BaseException as e:
+        logging.error(f'Program terminated with unexpected error:\n {e}')
+        logging.error(traceback.format_exc())
+        print(f'An unexpected error occurred. Error message can be found in log file. '
+              f'Please contact the developer.')
+        sys.exit(1)

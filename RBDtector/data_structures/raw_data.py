@@ -33,5 +33,4 @@ class RawData:
         if name in self._data_channels.keys():
             raise KeyError('Key "' + name + '" already exists in _data_channels.')
         else:
-            # TODO: Add RawDataChannel-Validation?
             self._data_channels[name]: RawDataChannel
