@@ -461,7 +461,7 @@ def __read_annotation_body(annotation_body_in_lines, event_name_split_index, sta
     return event_onsets, event_name_list, event_end_times
 
 
-def __find_start_date(header: Dict[str, str], filename: str) -> tuple[date, bool]:
+def __find_start_date(header: Dict[str, str], filename: str) -> Tuple[date, bool]:
     """
     Takes start time string out of dictionary['Start Time'], extracts the date part and returns it as datetime.date
     :param header: Dictionary containing a key 'Start Time' with date and time in a string as value
