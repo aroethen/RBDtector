@@ -61,7 +61,7 @@ class PSG:
 
         signal_names = signal_names.copy()
 
-        # extract start of PSG, sample rate of chin EMG channel and number of chin EMG samples to create datetime index
+        # extract start of PSG, sample rate of first EMG channel and number of first EMG samples to create datetime index
         start_datetime = raw_data.get_header()['startdate']
         sample_rate = raw_data.get_data_channels()[settings.SIGNALS_TO_EVALUATE[0]].get_sample_rate()
         sample_length = len(raw_data.get_data_channels()[settings.SIGNALS_TO_EVALUATE[0]].get_signal())

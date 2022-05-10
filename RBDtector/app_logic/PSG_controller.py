@@ -13,6 +13,8 @@ from input_handling import input_reader as ir
 from output_handling import csv_writer
 from util.error_for_display import ErrorForDisplay
 
+from input_handling import ibk_input_reader as ibk_reader
+
 
 class PSGController:
     """High-level controller for PSG evaluation functionality.
@@ -23,7 +25,7 @@ class PSGController:
 
         psg = PSG(input_path, output_path)
 
-        raw_data, annotation_data = ir.read_input(directory_name=input_path,
+        raw_data, annotation_data = ibk_reader.read_input(directory_name=input_path,
                                                   signals_to_load=settings.SIGNALS_TO_EVALUATE.copy(),
                                                   read_human_rating=settings.HUMAN_ARTIFACTS,
                                                   read_baseline=settings.HUMAN_BASELINE)
@@ -117,7 +119,7 @@ def single_psg_run(input_path, output_path = None, dev_run: bool = False):
 
     except (OSError, ErrorForDisplay) as e:
         if dev_run:
-            print(f'Expectable error in input PSG {input_path}:\n {e}')
+            raise
         if not dev_run:
             error_messages = error_messages + f'Error in input PSG {input_path}:\n {e}\n' \
                                               f'Full error message can be found in log file.\n\n'

@@ -13,6 +13,10 @@ from gui import gui
 from util import settings
 
 
+# dev definitions:
+DEV = True
+from app_logic.PSG_controller import single_psg_run
+
 def read_config():
     try:
         config_path = Path(os.getcwd(), 'config.ini')
@@ -68,9 +72,12 @@ if __name__ == "__main__":
     try:
         read_config()
 
-        logging.info('Starting GUI')
-        rbd_gui = gui.Gui()
-        rbd_gui.mainloop()
+        if not DEV:
+            logging.info('Starting GUI')
+            rbd_gui = gui.Gui()
+            rbd_gui.mainloop()
+        else:
+            single_psg_run('D:Daten Innsbruck/test-ibk', dev_run=True)
 
     except BaseException as e:
         logging.error(f'Program terminated with unexpected error:\n {e}')

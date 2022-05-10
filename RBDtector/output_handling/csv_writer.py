@@ -82,7 +82,7 @@ def write_output(psg_path,
 def create_channel_combinations_df(calculated_data, subject_name):
     df = calculated_data.copy()
 
-    # combinations of all chin channels, arm channels and leg channels respectively
+    # combinations of all chin channels, arm channels and leg channels, respectively
     basic_combinations = {}
 
     # names of channel combination basic combinations

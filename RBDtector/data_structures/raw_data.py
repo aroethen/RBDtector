@@ -34,3 +34,7 @@ class RawData:
             raise KeyError('Key "' + name + '" already exists in _data_channels.')
         else:
             self._data_channels[name]: RawDataChannel
+
+    @property
+    def header(self):
+        return self._header
