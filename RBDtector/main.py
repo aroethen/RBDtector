@@ -26,7 +26,7 @@ def read_config():
                 settings.SIGNALS_TO_EVALUATE = [x.strip() for x in config_signals_to_evaluate.split(',')]
 
             # Index of chin channel(s) in SIGNALS_TO_EVALUATE
-            config_chin = config.get('Settings', 'CHIN', fallback=None)
+            config_chin = config.get('Settings', 'CHIN', fallback=0)
             if config_chin:
                 settings.CHIN = [int(x.strip()) for x in config_chin.split(',')]
 

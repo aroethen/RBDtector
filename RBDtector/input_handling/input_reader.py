@@ -21,9 +21,10 @@ from util import settings
 
 
 def read_input(directory_name: str, signals_to_load: List[str] = None,
-               read_baseline=True, read_edf=True, read_human_rating=True) -> Tuple[RawData, AnnotationData]:
+               read_baseline=True, read_edf_bool=True, read_human_rating=True) -> Tuple[RawData, AnnotationData]:
     """
-    Reads input data from files in given directory into (RawData, AnnotationData)
+    Reads input data from files in given directory into (RawData, AnnotationData).
+    High-level function to be used by other modules
 
     :param read_edf:
     :param directory_name: relative or absolute path to input directory
@@ -37,10 +38,10 @@ def read_input(directory_name: str, signals_to_load: List[str] = None,
     :raises FileExistsError: if more than one file of a type are found
     :raises FileNotFoundError: if no EDF files are found
     """
-    filenames = __find_files(directory_name)
+    filenames = find_files(directory_name)
 
-    if read_edf:
-        raw_data: RawData = __read_edf(filenames['edf'], signals_to_load.copy())
+    if read_edf_bool:
+        raw_data: RawData = read_edf(filenames['edf'], signals_to_load.copy())
         filenames.pop('edf')
     else:
         raw_data = None
@@ -49,13 +50,19 @@ def read_input(directory_name: str, signals_to_load: List[str] = None,
     return raw_data, annotation_data
 
 
-def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, str]:
+def find_files(directory_name: str, file_finder_dict=FILE_FINDER.copy(), find_annotation_only=False) -> Dict[str, str]:
     """
-    Finds EDF and text files in given directory by predefined key words
+    Finds EDF and text files in given directory by predefined keywords
 
     :param directory_name: relative or absolute path to input directory
+    :param file_finder_dict: dictionary with key = file type ('edf', 'sleep_profile', ...); value = filename pattern to
+    search for file type using glob.glob
+    :param find_annotation_only: False = look for all file types in file_finder_dict; True = look for all exept edf
+    files in file_finder_dict
+
     :returns: dictionary with [edf, sleep_profile, flow_events, arousals, baseline, human_rating]
     as keys and the respective file names as values
+
     :raises OSError: if directory_name is not an existing directory
     :raises FileExistsError: if more than one file of a type are found
     :raises FileNotFoundError: if no EDF files are found
@@ -75,7 +82,7 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
 
     logging.info('Absolute input directory: ' + abs_dir)
 
-    for file_type, file_identifiers in FILE_FINDER.items():
+    for file_type, file_identifiers in file_finder_dict.items():
         tmp_files = []
         for file_identifier in file_identifiers:
             tmp_files.extend(glob.glob(os.path.join(abs_dir, file_identifier)))
@@ -88,7 +95,7 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
                 else:
                     tmp_files = [file_str for file_str in tmp_files if 'SNORE' not in file_str]
 
-        # process human rating if selected
+        # process all other entries and human rating if selected
         if len(tmp_files) == 1:
             if file_type == 'human_rating':
                 files[file_type] = tmp_files
@@ -121,7 +128,7 @@ def __find_files(directory_name: str, find_annotation_only=False) -> Dict[str, s
     return files
 
 
-def __read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
+def read_edf(edf: str, signals_to_load: List[str] = None) -> RawData:
     """
     Reads an .edf file using pyEDFlib and stores its data inside a RawData return object
     :param edf: path to .edf file

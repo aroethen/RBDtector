@@ -51,8 +51,14 @@ class PSGController:
 
         if settings.SNORE:
             snore_series = sleep_phase_series.str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
-            signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[0]}_signal_artifact'] = \
-                signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[0]}_signal_artifact'] | snore_series
+            try:
+                for chin_index in settings.CHIN:
+                    signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[chin_index]}_signal_artifact'] = \
+                        signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[chin_index]}_signal_artifact'] | snore_series
+            except TypeError:
+                # when settings.CHIN is not a list but a single integer
+                signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[settings.CHIN]}_signal_artifact'] = \
+                    signal_artifacts[f'{settings.SIGNALS_TO_EVALUATE[settings.CHIN]}_signal_artifact'] | snore_series
 
         artifact_free_rem_sleep_per_signal = psg.find_signal_artifact_free_REM_sleep_epochs_and_miniepochs(
             df_signals.index, is_REM_series, is_global_artifact_series, signal_artifacts,
