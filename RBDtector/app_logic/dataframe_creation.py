@@ -7,9 +7,10 @@ datetime-indexed pandas objects suitable for RBD detection.
 
 import numpy as np
 import pandas as pd
-from scipy import interpolate
+from scipy import interpolate, signal
 
 from util import settings
+
 
 
 def create_datetime_index(start_datetime, sample_rate, sample_length, index_rate=settings.RATE):
@@ -58,5 +59,16 @@ def signal_to_hz_rate_datetimeindexed_series(hz_rate, sample_rate, signal_array,
     else:
         idx = pd.date_range(start_datetime, freq=str(freq_in_ms) + 'ms', periods=len(signal_array))
         signal_dtseries = pd.Series(signal_array, index=idx, name=signal_type)
+
+    ## FILTER IBK DATA
+
+    b, a = signal.butter(N=2, Wn=10, btype='highpass', fs=hz_rate)
+    signal_dtseries.values[:] = signal.filtfilt(b, a, signal_dtseries.values)
+
+    b, a = signal.butter(N=2, Wn=100, btype='lowpass', fs=hz_rate)
+    signal_dtseries.values[:] = signal.filtfilt(b, a, signal_dtseries.values)
+
+    b, a = signal.iirnotch(w0=50, Q=800, fs=hz_rate)
+    signal_dtseries.values[:] = signal.filtfilt(b, a, signal_dtseries.values)
 
     return signal_dtseries

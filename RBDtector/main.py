@@ -14,8 +14,9 @@ from util import settings
 
 
 # dev definitions:
-DEV = True
-from app_logic.PSG_controller import single_psg_run
+DEV = False
+from app_logic.PSG_controller import single_psg_run, PSGController
+
 
 def read_config():
     try:
@@ -69,19 +70,20 @@ if __name__ == "__main__":
     )
     logging.info('\n----------- START -----------')
 
-    try:
-        read_config()
+    if not DEV:
+        try:
+            read_config()
 
-        if not DEV:
             logging.info('Starting GUI')
             rbd_gui = gui.Gui()
             rbd_gui.mainloop()
-        else:
-            single_psg_run('D:Daten Innsbruck/test-ibk', dev_run=True)
 
-    except BaseException as e:
-        logging.error(f'Program terminated with unexpected error:\n {e}')
-        logging.error(traceback.format_exc())
-        print(f'An unexpected error occurred. Error message can be found in log file. '
-              f'Please contact the developer.')
-        sys.exit(1)
+        except BaseException as e:
+            logging.error(f'Program terminated with unexpected error:\n {e}')
+            logging.error(traceback.format_exc())
+            print(f'An unexpected error occurred. Error message can be found in log file. '
+                  f'Please contact the developer.')
+            sys.exit(1)
+    else:
+        read_config()
+        PSGController.run_rbd_detection('D:/Daten Innsbruck/test-ibk', 'D:/Daten Innsbruck/test-ibk')

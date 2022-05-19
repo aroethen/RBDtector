@@ -1,6 +1,4 @@
 # internal modules
-import os
-from typing import Tuple
 
 from app_logic import dataframe_creation
 from data_structures.annotation_data import AnnotationData
@@ -8,6 +6,8 @@ from data_structures.raw_data import RawData
 
 # python modules
 import logging
+from datetime import timedelta
+from typing import Tuple
 
 # dependencies
 import numpy as np
@@ -108,7 +108,7 @@ class PSG:
         df = pd.DataFrame(index=idx)
 
         artifact_in_3s_miniepoch = artifact_signal_series \
-            .resample('3s') \
+            .resample('3s', origin=idx.values[0]) \
             .sum() \
             .gt(0)
         df['miniepoch_contains_artifact'] = artifact_in_3s_miniepoch
@@ -117,7 +117,7 @@ class PSG:
 
         # find all 30s epochs of global artifact-free REM sleep for tonic event detection
         artifact_in_30s_epoch = artifact_signal_series \
-            .resample('30s') \
+            .resample('30s', origin=idx.values[0]) \
             .sum() \
             .gt(0)
         df['epoch_contains_artifact'] = artifact_in_30s_epoch
@@ -274,7 +274,7 @@ class PSG:
                         # find baseline
                         baseline_in_rolling_window = artifact_free_rem_block.pow(2)\
                             .rolling(str(baseline_time_window_in_s) + 'S',
-                                     min_periods=settings.RATE * baseline_time_window_in_s)\
+                                     min_periods=(settings.RATE * baseline_time_window_in_s))\
                             .mean() \
                             .apply(np.sqrt)
 
@@ -441,7 +441,8 @@ class PSG:
         # resample sleep profile from 2Hz(30s intervals) to settings.RATE Hz, fill all entries with the correct
         # sleeping phase and add it as column to dataframe
         # This cuts off all samples that do not have a correlating sleeping phase
-        resampled_sleep_profile = sleep_profile.resample(str(1000 / settings.RATE) + 'ms').ffill()
+        resampled_sleep_profile = sleep_profile.resample(str(1000 / settings.RATE) + 'ms', origin=idx[0]).ffill()
+        resampled_sleep_profile = resampled_sleep_profile.loc[sleep_profile.index[0]:sleep_profile.index[-1]]
         df = pd.concat([df, resampled_sleep_profile], axis=1, join='inner')
 
         df['is_REM'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['REM'].lower()
@@ -451,6 +452,32 @@ class PSG:
             df['is_REM'] = np.logical_or(df['is_REM'], df['is_SNORE'])
 
         return df['sleep_phase'], df['is_REM']
+
+        # df = pd.DataFrame(index=idx)
+        # sleep_profile = annotation_data.sleep_profile[1]
+        #
+        # # remove sleep phases which are not fully filled with samples
+        # sleep_profile = sleep_profile.loc[idx[0]:idx[-1]]
+        # sleep_profile.iloc[-1] = SLEEP_CLASSIFIERS['artifact']
+        #
+        # sleep_profile.sort_index(inplace=True)
+        # sp_shifted = sleep_profile.reindex(sleep_profile.index + timedelta(seconds=30))
+        #
+        # for label, on, off in zip(sleep_profile['sleep_phase'], sleep_profile.index, sp_shifted.index):
+        #     df.loc[on:off, ['sleep_phase']] = label
+        #
+        # df = df.fillna(SLEEP_CLASSIFIERS['artifact'])
+        #
+        # df = df.loc[pd.to_datetime(sleep_profile.index[0]):
+        #             pd.to_datetime(sleep_profile.index[-1] + timedelta(seconds=30))]
+        #
+        # df['is_REM'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['REM'].lower()
+        #
+        # if settings.SNORE:
+        #     df['is_SNORE'] = df['sleep_phase'].str.lower() == SLEEP_CLASSIFIERS['SNORE'].lower()
+        #     df['is_REM'] = np.logical_or(df['is_REM'], df['is_SNORE'])
+        #
+        # return df['sleep_phase'], df['is_REM']
 
 
 ### df- and column-dependent internal methods
@@ -471,7 +498,7 @@ class PSG:
 
         # find 'any' miniepochs
         any_in_3s_miniepoch = df[signal_type + '_any'].squeeze() \
-            .resample('3s') \
+            .resample('3s', origin=df.index[0]) \
             .sum() \
             .gt(0)
         df[signal_type + '_any_miniepochs'] = any_in_3s_miniepoch
@@ -552,7 +579,7 @@ class PSG:
 
         # find phasic miniepochs
         phasic_in_3s_miniepoch = df[signal_type + '_phasic'].squeeze() \
-            .resample('3s') \
+            .resample('3s', origin=df.index[0]) \
             .sum() \
             .gt(0)
         df[signal_type + '_phasic_miniepochs'] = phasic_in_3s_miniepoch
@@ -577,7 +604,7 @@ class PSG:
 
         sustained_signal = np.logical_and(df[signal_type + '_sustained_activity'], artifact_free_rem_sleep_epochs)
         tonic_in_30s = sustained_signal \
-            .resample('30s') \
+            .resample('30s', origin=df.index[0]) \
             .sum() \
             .gt((settings.RATE * 30) / 2)
         df[signal_type + '_tonic'] = tonic_in_30s
@@ -683,19 +710,19 @@ class PSG:
         if count_based_activity:
             series_to_resample = df[signal_type].astype(int)
             increased_in_point05s = series_to_resample \
-                .resample(settings.CHUNK_SIZE) \
+                .resample(settings.CHUNK_SIZE, origin=df.index[0]) \
                 .sum() \
                 .apply(lambda x: x > 3)
-            increased_in_point05s = increased_in_point05s.resample(str(1000 / settings.RATE) + 'ms').ffill()
+            increased_in_point05s = increased_in_point05s.resample(str(1000 / settings.RATE) + 'ms', origin=df.index[0]).ffill()
             df[signal_type + '_increased_activity'] = increased_in_point05s
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity']
 
             if settings.WITH_OFFSET:
                 increased_in_point05s_with_offset = series_to_resample \
-                    .resample(settings.CHUNK_SIZE, offset=settings.OFFSET_SIZE) \
+                    .resample(settings.CHUNK_SIZE, offset=settings.OFFSET_SIZE, origin=df.index[0]) \
                     .sum() \
                     .apply(lambda x: x > 3)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / settings.RATE) + 'ms').ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / settings.RATE) + 'ms', origin=df.index[0]).ffill()
                 df[signal_type + '_increased_activity_with_offset'] = increased_in_point05s_with_offset
                 df[signal_type + '_increased_activity'] = np.logical_or(
                     df[signal_type + '_increased_activity'],
@@ -706,11 +733,11 @@ class PSG:
             valid_signal = artifact_free_rem_sleep_miniepoch * df[signal_type]
             valid_signal = valid_signal.pow(2)
             increased_in_point05s = valid_signal \
-                .resample(settings.CHUNK_SIZE) \
+                .resample(settings.CHUNK_SIZE, origin=df.index[0]) \
                 .mean() \
                 .apply(np.sqrt)
 
-            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(str(1000 / settings.RATE) + 'ms').ffill()
+            df[signal_type + '_increased_activity'] = increased_in_point05s.resample(str(1000 / settings.RATE) + 'ms', origin=df.index[0]).ffill()
             df[signal_type + '_increased_activity'] = df[signal_type + '_increased_activity'].ffill()
             df[signal_type + '_increased_activity'] = \
                 df[signal_type + '_increased_activity'] > (2 * df[signal_type + '_baseline'])
@@ -719,10 +746,10 @@ class PSG:
                 valid_signal = artifact_free_rem_sleep_miniepoch * df[signal_type]
                 valid_signal = valid_signal.pow(2)
                 increased_in_point05s_with_offset = valid_signal \
-                    .resample(settings.CHUNK_SIZE, offset=settings.OFFSET_SIZE) \
+                    .resample(settings.CHUNK_SIZE, offset=settings.OFFSET_SIZE, origin=df.index[0]) \
                     .mean() \
                     .apply(np.sqrt)
-                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / settings.RATE) + 'ms').ffill()
+                increased_in_point05s_with_offset = increased_in_point05s_with_offset.resample(str(1000 / settings.RATE) + 'ms', origin=df.index[0]).ffill()
                 increased_activity_with_offset = pd.Series(increased_in_point05s_with_offset, index=df.index)
                 increased_activity_with_offset = \
                     increased_activity_with_offset > (2 * df[signal_type + '_baseline'])
@@ -782,7 +809,7 @@ class PSG:
         df[signal_type + '_human_phasic'] = df[signal_type + '_human_phasic'] & df['artifact_free_rem_sleep_miniepoch']
 
         phasic_in_3s_miniepoch = df[signal_type + '_human_phasic'].squeeze() \
-            .resample('3s') \
+            .resample('3s', origin=df.index[0]) \
             .sum() \
             .gt(0)
         df[signal_type + '_human_phasic_miniepochs'] = phasic_in_3s_miniepoch
@@ -794,7 +821,7 @@ class PSG:
                                          df[signal_type + '_human_phasic']
 
         any_in_3s_miniepoch = df[signal_type + '_human_any'].squeeze() \
-            .resample('3s') \
+            .resample('3s', origin=df.index[0]) \
             .sum() \
             .gt(0)
         df[signal_type + '_human_any_miniepochs'] = any_in_3s_miniepoch

@@ -9,11 +9,13 @@ from util.settings import SIGNALS_TO_EVALUATE
 from util.definitions import SLEEP_CLASSIFIERS
 from util import settings
 from app_logic.PSG import PSG
-from input_handling import input_reader as ir
 from output_handling import csv_writer
 from util.error_for_display import ErrorForDisplay
 
+from input_handling import input_reader as ir
 from input_handling import ibk_input_reader as ibk_reader
+
+from dev_plots import dev_plots
 
 
 class PSGController:
@@ -91,6 +93,12 @@ class PSGController:
             df_signals=df_signals, df_baselines=df_baselines,
             artifact_free_rem_sleep_per_signal=artifact_free_rem_sleep_per_signal,
             signal_names=signal_names, annotation_data=annotation_data)
+
+        # dev_plots(pd.concat([rbd_events, is_REM_series,
+        #                      is_global_artifact_free_rem_sleep_epoch_series,
+        #                      is_global_artifact_free_rem_sleep_miniepoch_series,
+        #                      artifact_free_rem_sleep_per_signal],
+        #                     axis=1, verify_integrity=True))
 
         df_out, df_channel_combinations = csv_writer.write_output(
             output_path,
