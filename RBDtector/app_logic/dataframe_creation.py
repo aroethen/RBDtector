@@ -68,7 +68,7 @@ def signal_to_hz_rate_datetimeindexed_series(hz_rate, sample_rate, signal_array,
     b, a = signal.butter(N=2, Wn=100, btype='lowpass', fs=hz_rate)
     signal_dtseries.values[:] = signal.filtfilt(b, a, signal_dtseries.values)
 
-    b, a = signal.iirnotch(w0=50, Q=800, fs=hz_rate)
+    b, a = signal.iirnotch(w0=50, Q=80, fs=hz_rate)
     signal_dtseries.values[:] = signal.filtfilt(b, a, signal_dtseries.values)
 
     return signal_dtseries
