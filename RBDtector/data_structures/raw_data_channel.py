@@ -13,6 +13,12 @@ class RawDataChannel:
     def get_signal(self):
         return self._signal
 
+    def set_signal(self, signal):
+        self._signal = signal
+
+    def get_signal_header(self):
+        return self._signal_header
+
     def get_signal_as_pd_series(self):
         return pd.Series(self._signal)
 

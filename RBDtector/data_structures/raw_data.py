@@ -33,8 +33,12 @@ class RawData:
         if name in self._data_channels.keys():
             raise KeyError('Key "' + name + '" already exists in _data_channels.')
         else:
-            self._data_channels[name]: RawDataChannel
+            self._data_channels[name] = channel
 
     @property
     def header(self):
         return self._header
+
+    @property
+    def data_channels(self):
+        return self._data_channels

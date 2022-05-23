@@ -38,8 +38,25 @@ def read_input(directory_name: str, signals_to_load: List[str] = None,
     annotation_data, start_date = __read_txt_files(filenames)
 
     if read_edf_bool:
-        raw_data: RawData = input_reader.read_edf(filenames['edf'], signals_to_load.copy())
+        signals_to_load_ibk = signals_to_load.copy()
+        try:
+            signals_to_load_ibk.remove('EMG Ment')
+            signals_to_load_ibk.append('EMG Ment1')
+            signals_to_load_ibk.append('EMG Ment2')
+        except ValueError:
+            pass
+
+        raw_data: RawData = input_reader.read_edf(filenames['edf'], signals_to_load_ibk.copy())
         raw_data.header['startdate'] = start_date
+        try:
+            chin_channel_calculated = raw_data.data_channels['EMG Ment1'].get_signal() - raw_data.data_channels['EMG Ment2'].get_signal()
+            chin_channel_header = raw_data.data_channels['EMG Ment1'].get_signal_header()
+            chin_channel_header['label'] = 'EMG Ment'
+            raw_data.add_channel('EMG Ment', RawDataChannel(chin_channel_header, chin_channel_calculated))
+            raw_data.data_channels.pop('EMG Ment1')
+            raw_data.data_channels.pop('EMG Ment2')
+        except KeyError:
+            pass
 
         filenames.pop('edf')
     else:
@@ -100,7 +117,7 @@ def __read_sleep_profile(filename, start_datetime, starttime_gap, encoding):
     hypnogram = pd.read_csv(filename, names=['offset', 'sleep_phase'], sep='\t', header=None, encoding=encoding)
 
     timestamps = (start_datetime - starttime_gap) + \
-                 ((hypnogram['offset'] - 10) * datetime.timedelta(seconds=30))
+                 ((hypnogram['offset']) * datetime.timedelta(seconds=30))
     hypnogram.index = timestamps
 
     idx = pd.DatetimeIndex(

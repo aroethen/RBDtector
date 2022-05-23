@@ -12,7 +12,6 @@ from scipy import interpolate, signal
 from util import settings
 
 
-
 def create_datetime_index(start_datetime, sample_rate, sample_length, index_rate=settings.RATE):
     """ Creates a datetime index starting at ``start_datetime`` with ``index_rate`` Hz. This translates to a
     frequency of 1000/``index_rate`` milliseconds. The number of index entries are calculated to fit a sample with
