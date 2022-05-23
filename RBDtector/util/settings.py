@@ -26,6 +26,9 @@ CHUNK_SIZE = '30L'
 WITH_OFFSET = True
 OFFSET_SIZE = '15L'
 
+# IBK specific settings
+HZ_1000 = False
+
 
 def settings_as_string():
     return str(f'RATE = {RATE}\n' +
@@ -42,6 +45,7 @@ def settings_as_string():
                f'SIGNALS_TO_EVALUATE = {str(SIGNALS_TO_EVALUATE)}\n' +
                f'CHIN = {str(CHIN)}\n' +
                f'LEGS = {str(LEGS)}\n' +
-               f'ARMS = {str(ARMS)}\n'
+               f'ARMS = {str(ARMS)}\n' +
+               f'HZ_1000 = {str(HZ_1000)}'
 
                )

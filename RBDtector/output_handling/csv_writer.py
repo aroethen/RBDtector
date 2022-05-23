@@ -135,14 +135,17 @@ def create_channel_combinations_df(calculated_data, subject_name):
                           for combination_list in all_combinations]
     combined_channels_list = [np.logical_or.reduce(channel_combination)
                               for channel_combination in channel_lists_list]
-    df_channel_combinations = pd.DataFrame(dict(zip(all_combinations_as_string, combined_channels_list)),
-                                           index=df.index)
+    combined_channel_sums_list = [np.sum(channel_combination)
+                                  for channel_combination in combined_channels_list]
+    df_channel_combinations = pd.DataFrame(
+        dict(zip(all_combinations_as_string, combined_channel_sums_list)), index=[0]
+    ).transpose()
 
     # count miniepochs of activity in artifact-free REM sleep per combination
-    sum_of_channel_combinations = df_channel_combinations.loc[:, :].sum(axis=0)
+    # sum_of_channel_combinations = df_channel_combinations.loc[:, :].sum(axis=0)
     epoch_length = 3
     epoch_count = df['artifact_free_rem_sleep_miniepoch'].sum() / (settings.RATE * epoch_length)
-    df_out = pd.DataFrame(sum_of_channel_combinations.values,
+    df_out = pd.DataFrame(df_channel_combinations.values,
                           columns=[subject_name, ],
                           index=all_combinations_as_string).transpose()
     df_out = (df_out / (settings.RATE * epoch_length)) * 100 / epoch_count
