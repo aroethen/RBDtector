@@ -60,7 +60,8 @@ def write_output(psg_path,
         df_channel_combinations.to_excel(os.path.normpath(
             os.path.join(output_path, f'Channel_combinations_{str(datetime.now()).replace(" ", "_").replace(":", "-")}.xlsx')))
 
-        with open(os.path.normpath(os.path.join(output_path, 'current_settings.csv')), 'w') as f:
+        with open(os.path.normpath(os.path.join(output_path,
+                                                f'{str(datetime.now()).replace(" ", "_").replace(":", "-")} current_settings.csv')), 'w') as f:
             f.write(f"Date: {str(datetime.now()).replace(' ', '_').replace(':', '-')}"
                     f"{settings.settings_as_string()}"
                     f"{definitions_as_string()}"
@@ -284,7 +285,9 @@ def write_exact_events_csv(calculated_data, output_path, signal_names):
                 list(zip(start_times, end_times, [HUMAN_RATING_LABEL.get(signal, signal) + EVENT_TYPE[cat]] * len(start_times))))
     rbdtector_events.sort(key=(lambda tpl: tpl[0]))
     with open(
-            os.path.normpath(os.path.join(output_path, 'RBDtection_Events_{}.csv'.format(os.path.basename(output_path)))),
+            os.path.normpath(os.path.join(output_path,
+                                          f'RBDtection_Events_{os.path.basename(output_path)}_'
+                                          f'{str(datetime.now()).replace(" ", "_").replace(":", "-")}.csv')),
             'w'
     ) as csvfile:
         csv_writer = csv.writer(csvfile)
