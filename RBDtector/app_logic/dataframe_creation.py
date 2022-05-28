@@ -74,16 +74,6 @@ def signal_to_hz_rate_datetimeindexed_series(hz_rate, sample_rate, signal_array,
         signal_dtseries.values[:] = signal.filtfilt(b, a, signal_dtseries.values)
 
     else:
-        # ## FILTER IBK DATA
-        #
-        # b, a = signal.butter(N=4, Wn=50, btype='highpass', fs=sample_rate)
-        # signal_array[:] = signal.filtfilt(b, a, signal_array)
-        #
-        # b, a = signal.butter(N=4, Wn=300, btype='lowpass', fs=sample_rate)
-        # signal_array[:] = signal.filtfilt(b, a, signal_array)
-        #
-        # b, a = signal.butter(N=4, Wn=[48, 52], btype='bandstop', fs=sample_rate)
-        # signal_array[:] = signal.filtfilt(b, a, signal_array)
 
         if hz_rate != sample_rate:
             # resample to hz_rate if necessary

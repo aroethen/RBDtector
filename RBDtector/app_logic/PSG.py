@@ -6,7 +6,6 @@ from data_structures.raw_data import RawData
 
 # python modules
 import logging
-from datetime import timedelta
 from typing import Tuple
 
 # dependencies

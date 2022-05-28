@@ -54,6 +54,11 @@ def read_config():
             # Use manually defined static baselines from a baseline file instead of calculating adaptive baseline levels
             settings.HUMAN_BASELINE = config.getboolean('Settings', 'HUMAN_BASELINE',
                                                         fallback=settings.HUMAN_BASELINE)
+
+            settings.HZ_1000 = config.getboolean('Settings', 'HZ_1000', fallback=settings.HZ_1000)
+            if settings.HZ_1000:
+                settings.RATE = 1000
+
         except configparser.NoSectionError:
             logging.info("Section [Settings] not found in config file.")
 

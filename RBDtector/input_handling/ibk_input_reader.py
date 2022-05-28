@@ -9,16 +9,13 @@ FILE_FINDER_IBK = {     #: Maps file type to its file name pattern used to find 
 }
 
 # python modules
-import os
-import glob
 import datetime
-from datetime import date, timedelta
+from datetime import timedelta
 
-from typing import Tuple, Dict, List, Union, Any
+from typing import Tuple, List, Union, Any
 import logging
 
 # third-party modules
-from pyedflib import highlevel
 import pandas as pd
 
 # internal modules
@@ -26,8 +23,6 @@ from input_handling import input_reader
 from data_structures.raw_data import RawData
 from data_structures.raw_data_channel import RawDataChannel
 from data_structures.annotation_data import AnnotationData
-from util.error_for_display import ErrorForDisplay
-from util import settings
 
 
 def read_input(directory_name: str, signals_to_load: List[str] = None,
